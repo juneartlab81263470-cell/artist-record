@@ -186,7 +186,7 @@ function viewLogin(mode='in',msg=''){
     <h1 class="wm wm-lg" role="img" aria-label="JALP · JuneArtLab Portfolio"></h1><div class="sub">작가 활동기록</div>
     <h2>${T[0]}</h2><p class="lead">${T[1]}</p>
     ${mode!=='newpw'?`<div class="field"><label for="le">이메일</label><input id="le" type="email" autocomplete="email" required></div>`:''}
-    ${mode!=='reset'?`<div class="field"><label for="lp">비밀번호${mode!=='in'?' (8자 이상)':''}</label><input id="lp" type="password" autocomplete="${mode==='in'?'current-password':'new-password'}" required></div>`:''}
+    ${mode!=='reset'?`<div class="field"><label for="lp">비밀번호${mode!=='in'?' (8자 이상)':''}</label><div class="pw"><input id="lp" type="password" autocomplete="${mode==='in'?'current-password':'new-password'}" required><button type="button" id="pweye" class="pweye" aria-label="비밀번호 보기" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>`:''}
     ${mode==='up'?`<div class="field"><label for="lph">연락처 (선택)</label><input id="lph" type="tel" autocomplete="tel" placeholder="010-0000-0000"></div>
     <label class="consent"><input type="checkbox" id="lok"> 업데이트 공지·안내를 받을 목적으로 연락처를 쓰는 데 동의해요 (선택)</label>`:''}
     ${mode==='up'?`<div class="field"><label for="lc">초대 코드 (있으면)</label><input id="lc" autocomplete="off" placeholder="예: VIP-7K3Q-M9XA"></div>`:''}
@@ -197,6 +197,7 @@ function viewLogin(mode='in',msg=''){
   </form>`;
   document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>viewLogin(b.dataset.m));
   $('#pwback')?.addEventListener('click',()=>{$('.tabbar').hidden=false;setTab('set')});
+  const eyeB=$('#pweye');if(eyeB)eyeB.onclick=()=>{const i=$('#lp'),on=i.type==='password';i.type=on?'text':'password';eyeB.setAttribute('aria-pressed',on);eyeB.setAttribute('aria-label',on?'비밀번호 숨기기':'비밀번호 보기');eyeB.classList.toggle('on',on);i.focus()};
   $('#lf').onsubmit=async e=>{e.preventDefault();const em=$('#le')?.value.trim(),pw=$('#lp')?.value||'';const go=$('#lgo');go.disabled=true;
     try{
       if(mode==='in'){await store.signIn(em,pw);await afterLogin()}
