@@ -46,7 +46,7 @@ const PRESETS = {
   portfolio:{label:'장르별 포트폴리오',desc:'표지, 약력, 한 쪽에 한 작품',title:'포트폴리오',types:['work','exhibition','award'],years:0,photos:true,oneGenre:true,layout:'book'},
   custom:{label:'직접 고르기',desc:'항목·기간·장르를 직접 선택',title:'활동 기록',types:['work','exhibition','award','catalog','class'],years:0,photos:true}
 };
-const PLANS={free:{l:'무료',n:10},friend:{l:'지인·협회 무료',n:100},basic:{l:'베이직',n:20},pro:{l:'프로',n:100}};
+const PLANS={free:{l:'무료',n:10},friend:{l:'지인·협회 무료',n:100},basic:{l:'베이직',n:20},pro:{l:'프로',n:100},vip:{l:'VIP',n:'무제한'}};
 const DEFAULT_SETTINGS={name:'',genres:['한국화','서양화','수채화','판화','조각','공예','디자인','서예','문인화','캘리그라피','민화','서각','사진','미디어아트']};
 
 /* ---------- helpers ---------- */
@@ -143,6 +143,10 @@ function CloudStore(cfg){
     async touch(){await sb.rpc('touch_member')},
     async myPlan(){const {data,error}=await sb.rpc('my_plan');if(error)throw error;return Array.isArray(data)?data[0]:data},
     async adminMembers(){const {data,error}=await sb.rpc('admin_members');fail(error,'회원 목록을 불러오지 못했어요');return data},
+    async redeem(code){const {data,error}=await sb.rpc('redeem_code',{c:code});if(error)throw error;return data},
+    async listCodes(){const {data,error}=await sb.from('invite_codes').select('*').order('created_at',{ascending:false});fail(error,'초대 코드를 불러오지 못했어요');return data},
+    async createCode(row){const {error}=await sb.from('invite_codes').insert(row);fail(error,'초대 코드를 만들지 못했어요')},
+    async deleteCode(code){const {error}=await sb.from('invite_codes').delete().eq('code',code);fail(error,'지우지 못했어요')},
     async updateMember(id,patch){const {error}=await sb.from('members').update(patch).eq('user_id',id);fail(error,'회원 정보를 저장하지 못했어요')},
     url:p=>p.src||urls.get(p.path)?.url||'',
     async photoData(p){if(p.src)return p.src;const {data}=await sb.storage.from(BUCKET).download(p.path);return data?blobToDataURL(data):''}
@@ -177,6 +181,7 @@ function viewLogin(mode='in',msg=''){
     <h2>${T[0]}</h2><p class="lead">${T[1]}</p>
     ${mode!=='newpw'?`<div class="field"><label for="le">이메일</label><input id="le" type="email" autocomplete="email" required></div>`:''}
     ${mode!=='reset'?`<div class="field"><label for="lp">비밀번호${mode!=='in'?' (8자 이상)':''}</label><input id="lp" type="password" autocomplete="${mode==='in'?'current-password':'new-password'}" required></div>`:''}
+    ${mode==='up'?`<div class="field"><label for="lc">초대 코드 (있으면)</label><input id="lc" autocomplete="off" placeholder="예: VIP-7K3Q-M9XA"></div>`:''}
     ${msg?`<p class="err" role="alert">${esc(msg)}</p>`:''}
     <button class="btn primary" id="lgo">${T[2]}</button>
     ${mode==='in'?`<button type="button" class="switch" data-m="up">처음이에요. 가입할게요</button><button type="button" class="switch" data-m="reset">비밀번호를 잊었어요</button>`:mode!=='newpw'?`<button type="button" class="switch" data-m="in">로그인 화면으로</button>`:''}
@@ -185,20 +190,25 @@ function viewLogin(mode='in',msg=''){
   $('#lf').onsubmit=async e=>{e.preventDefault();const em=$('#le')?.value.trim(),pw=$('#lp')?.value||'';const go=$('#lgo');go.disabled=true;
     try{
       if(mode==='in'){await store.signIn(em,pw);await afterLogin()}
-      else if(mode==='up'){if(pw.length<8)throw new Error('비밀번호를 8자 이상으로 정해 주세요');const d=await store.signUp(em,pw);
+      else if(mode==='up'){if(pw.length<8)throw new Error('비밀번호를 8자 이상으로 정해 주세요');const lc=$('#lc')?.value.trim();if(lc){try{localStorage.setItem('pendingCode',lc)}catch(e){}}const d=await store.signUp(em,pw);
         if(d.session)await afterLogin();else viewLogin('in',`${em}로 확인 메일을 보냈어요. 메일의 링크를 누른 뒤 여기서 로그인하세요.`)}
       else if(mode==='reset'){await store.resetPassword(em);viewLogin('in','재설정 메일을 보냈어요. 메일의 링크를 누르면 새 비밀번호를 정할 수 있어요.')}
       else if(mode==='newpw'){if(pw.length<8)throw new Error('비밀번호를 8자 이상으로 정해 주세요');await store.updatePassword(pw);toast('비밀번호를 바꿨어요');await afterLogin()}
     }catch(err){go.disabled=false;const m=String(err.message||err);
       viewLogin(mode,/Invalid login/i.test(m)?'이메일 또는 비밀번호가 맞지 않아요':/not confirmed/i.test(m)?'메일함의 확인 링크를 먼저 눌러 주세요':/already registered/i.test(m)?'이미 가입된 이메일이에요. 로그인해 주세요':m)}};
 }
+function redeemMsg(r){if(String(r).startsWith('OK:'))return `초대 코드가 적용됐어요. 이제 ${PLANS[String(r).slice(3)]?.l||''} 등급이에요`;
+  return {NOT_FOUND:'없는 초대 코드예요. 글자를 다시 확인해 주세요',EXPIRED:'사용 기한이 지난 초대 코드예요',USED_UP:'이미 사용된 초대 코드예요'}[r]||'초대 코드를 적용하지 못했어요'}
 async function afterLogin(){
   S.user=await store.user();$('#app').innerHTML='<div class="loading">기록을 불러오는 중…</div>';
   try{
     const st=await store.getSettings();if(st)S.settings=st;
     S.records=await store.list();await store.photoURLs(S.records);
   }catch(e){toast(e.message)}
-  if(store.touch){try{await store.touch();S.plan=await store.myPlan()}catch(e){S.plan=null}}
+  if(store.touch){try{await store.touch();
+    let pend=null;try{pend=localStorage.getItem('pendingCode')}catch(e){}
+    if(pend){try{const r=await store.redeem(pend);try{localStorage.removeItem('pendingCode')}catch(e){}toast(redeemMsg(r))}catch(e){}}
+    S.plan=await store.myPlan()}catch(e){S.plan=null}}
   applyPreset('artproof');$('.tabbar').hidden=false;setTab('list');
 }
 
@@ -364,7 +374,7 @@ function docBody(img=p=>store.url(p),listOnly=false){const o=S.out,sel=selection
     const photosOf=(r,pre='')=>TYPES[r.type].slots.flatMap(sl=>r.photos.filter(p=>p.slot===sl.k).map(p=>fig(p,pre+sl.l))).join('');
     const cats=by('catalog');const usedCat=new Set();let evh='';
     for(const r of exs){const f=r.f;const lc=cats.filter(c=>c.f.exhibitionId===r.id);lc.forEach(c=>usedCat.add(c.id));
-      const ph=photosOf(r)+lc.map(c=>photosOf(c,'도록 ')).join('');
+      const ph=lc.map(c=>photosOf(c,'도록 ')).join('')+photosOf(r);
       if(!ph&&!lc.length)continue;
       evh+=`<div class="ev"><h3>전시 · 「${esc(f.title)}」${f.kind?' '+esc(f.kind):''}</h3>
         <table class="evinfo">${[['기간',fmtRange(f.start,f.end)],['장소',f.venue],['주최',f.host],['주관',f.organizer],...lc.map(c=>['도록',`『${c.f.title}』${c.f.publisher?', '+c.f.publisher:''}${c.f.date?', '+fmtDate(c.f.date)+' 발행':''}${c.f.pages?', 수록 '+c.f.pages:''}`])].filter(x=>x[1]).map(([k,v])=>`<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</table>
@@ -449,36 +459,50 @@ function openPreview(text){const sh=$('#sheet');
 }
 
 /* ---------- admin ---------- */
-async function openAdmin(){const sh=$('#sheet');let list=[],q='';
+async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],q='';
   sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">닫기</button><b>회원 관리</b><button class="btn" id="reload">새로고침</button></div></div><div class="wrap" id="adm"><div class="loading">불러오는 중…</div></div>`;
   sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
   sh.querySelector('#cancel').onclick=()=>{sh.hidden=true;sh.innerHTML='';document.body.style.overflow='';render()};
   sh.querySelector('#reload').onclick=load;
   const day=d=>d?fmtDate(String(d).slice(0,10)):'';
   const ago=d=>{if(!d)return'';const n=Math.floor((Date.now()-new Date(d))/864e5);return n<=0?'오늘':n===1?'어제':n+'일 전'};
-  function limitOf(m){if(m.user_id===S.user?.id&&S.plan?.admin)return '∞';if(m.plan==='friend'&&m.plan_until&&m.plan_until<new Date().toISOString().slice(0,10))return 10;return PLANS[m.plan]?.n??10}
+  function limitOf(m){if(m.user_id===S.user?.id&&S.plan?.admin)return '∞';if(m.plan==='vip')return '∞';if(m.plan==='friend'&&m.plan_until&&m.plan_until<new Date().toISOString().slice(0,10))return 10;return PLANS[m.plan]?.n??10}
   function draw(){const box=sh.querySelector('#adm');if(!box)return;
     const L=list.filter(m=>!q||(m.email||'').includes(q)||(m.name||'').includes(q)||(m.memo||'').includes(q));
     const cnt=k=>list.filter(m=>m.plan===k).length;const week=list.filter(m=>m.last_seen&&Date.now()-new Date(m.last_seen)<7*864e5).length;
     const soon=list.filter(m=>m.plan==='friend'&&m.plan_until&&(new Date(m.plan_until)-Date.now())<30*864e5).length;
     box.innerHTML=`<div class="stats" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat"><b>${list.length}</b><span>전체 회원</span></div><div class="stat"><b>${week}</b><span>7일 내 접속</span></div><div class="stat"><b>${soon}</b><span>무료 30일 내 만료</span></div></div>
-      <div class="stats" style="grid-template-columns:repeat(4,1fr)">${Object.entries(PLANS).map(([k,p])=>`<div class="stat"><b>${cnt(k)}</b><span>${p.l}</span></div>`).join('')}</div>
+      <div class="section"><div class="sh2"><h2>초대 코드</h2></div>
+        <p>코드는 한 번만 쓸 수 있어요. 가입할 때 입력하거나, 가입한 뒤 설정 탭에서 입력하면 등급이 바로 바뀌어요.</p>
+        <div class="row2"><div class="field"><label for="cplan">줄 등급</label><select id="cplan">${['vip','friend','pro','basic'].map(k=>`<option value="${k}">${PLANS[k].l}</option>`).join('')}</select></div>
+        <div class="field"><label for="cmon">기간</label><select id="cmon"><option value="">기한 없음</option><option value="6">6개월</option><option value="12">1년</option><option value="3">3개월</option></select></div></div>
+        <div class="field"><label for="cmemo">누구에게 (메모)</label><input id="cmemo" placeholder="예: ○○○ 선생님"></div>
+        <div class="actions"><button class="btn primary" id="cnew">코드 만들기</button></div>
+        <div class="worder">${codes.map(c=>`<div class="wo"><span style="min-width:0"><b class="code">${esc(c.code)}</b> <small>${esc(PLANS[c.plan]?.l||c.plan)}${c.months?' · '+c.months+'개월':''}${c.memo?' · '+esc(c.memo):''}</small><br><small>${c.used>=c.max_uses?`사용됨${c.used_by?' · '+esc(c.used_by):''}${c.used_at?' · '+day(c.used_at):''}`:'아직 안 씀'} · ${day(c.created_at)} 만듦</small></span>
+          <span class="mv">${c.used<c.max_uses?`<button class="btn small" data-copy="${esc(c.code)}">복사</button>`:''}<button class="btn small danger" data-del="${esc(c.code)}">지우기</button></span></div>`).join('')}</div></div>
+      <div class="stats" style="grid-template-columns:repeat(5,1fr)">${Object.entries(PLANS).map(([k,p])=>`<div class="stat"><b>${cnt(k)}</b><span>${p.l}</span></div>`).join('')}</div>
       <div class="field" style="margin-bottom:10px"><label for="aq">찾기 (이메일·이름·메모)</label><input id="aq" value="${esc(q)}"></div>
       <div class="list">${L.map(m=>`<div class="section mem" data-u="${m.user_id}">
         <div><b>${esc(m.name||'(이름 없음)')}</b> <span class="note">${esc(m.email||'')}</span></div>
         <p>가입 ${day(m.created_at)} · 마지막 접속 ${ago(m.last_seen)} · 작품 ${m.work_count} / ${limitOf(m)}점 · 전체 기록 ${m.record_count}건</p>
-        <div class="row2"><div class="field"><label for="ap_${m.user_id}">등급</label><select id="ap_${m.user_id}">${Object.entries(PLANS).map(([k,p])=>`<option value="${k}" ${m.plan===k?'selected':''}>${p.l} (${p.n}점)</option>`).join('')}</select></div>
+        <div class="row2"><div class="field"><label for="ap_${m.user_id}">등급</label><select id="ap_${m.user_id}">${Object.entries(PLANS).map(([k,p])=>`<option value="${k}" ${m.plan===k?'selected':''}>${p.l} (${p.n}${typeof p.n==='number'?'점':''})</option>`).join('')}</select></div>
         <div class="field"><label for="au_${m.user_id}">무료 기간 끝나는 날</label><input type="date" id="au_${m.user_id}" value="${m.plan_until||''}"></div></div>
         <div class="field"><label for="am_${m.user_id}">메모</label><input id="am_${m.user_id}" value="${esc(m.memo||'')}" placeholder="예: ○○협회 소개, 3월 워크숍 수강생"></div>
         <div class="actions"><button class="btn small primary" data-save="${m.user_id}">저장</button>${m.plan==='friend'?`<button class="btn small" data-six="${m.user_id}">오늘부터 6개월</button>`:''}</div></div>`).join('')||'<div class="empty">회원이 없어요.</div>'}</div>`;
     box.querySelector('#aq').oninput=e=>{q=e.target.value.trim();const pos=e.target.selectionStart;draw();const el=box.querySelector('#aq');el.focus();el.setSelectionRange(pos,pos)};
     box.querySelectorAll('[data-six]').forEach(b=>b.onclick=()=>{const d=new Date();d.setMonth(d.getMonth()+6);box.querySelector('#au_'+b.dataset.six).value=d.toISOString().slice(0,10)});
     box.querySelectorAll('[id^=ap_]').forEach(sel=>sel.onchange=()=>{const m=list.find(x=>x.user_id===sel.id.slice(3));m.plan=sel.value;m.memo=box.querySelector('#am_'+m.user_id).value;m.plan_until=box.querySelector('#au_'+m.user_id).value||null;draw()});
+    box.querySelector('#cnew').onclick=async()=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const rnd=n=>Array.from(crypto.getRandomValues(new Uint8Array(n)),x=>A[x%A.length]).join('');
+      const plan=box.querySelector('#cplan').value;const code=`${plan==='vip'?'VIP':plan==='friend'?'FRD':plan.toUpperCase().slice(0,3)}-${rnd(4)}-${rnd(4)}`;
+      const months=box.querySelector('#cmon').value;try{await store.createCode({code,plan,months:months?+months:null,max_uses:1,memo:box.querySelector('#cmemo').value.trim()});codes=await store.listCodes();draw();
+        try{await navigator.clipboard.writeText(code);toast(`${code} 를 만들고 복사했어요`)}catch(e){toast(`${code} 를 만들었어요`)}}catch(e){toast(e.message)}};
+    box.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);toast('복사했어요')}catch(e){toast(b.dataset.copy)}});
+    box.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{if(b.dataset.armed!=='1'){b.dataset.armed='1';b.textContent='정말 지우기';return}try{await store.deleteCode(b.dataset.del);codes=codes.filter(c=>c.code!==b.dataset.del);draw()}catch(e){toast(e.message)}});
     box.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{const id=b.dataset.save;const patch={plan:box.querySelector('#ap_'+id).value,plan_until:box.querySelector('#au_'+id).value||null,memo:box.querySelector('#am_'+id).value.trim()};
       b.disabled=true;try{await store.updateMember(id,patch);Object.assign(list.find(x=>x.user_id===id),patch);toast('저장했어요');draw()}catch(e){toast(e.message);b.disabled=false}});
   }
-  async function load(){try{list=await store.adminMembers()||[];draw()}catch(e){const box=sh.querySelector('#adm');if(box)box.innerHTML=`<p class="note">${esc(e.message)}. 관리자 설정 글(admin.sql)을 실행했는지 확인해 주세요.</p>`}}
+  async function load(){try{list=await store.adminMembers()||[];try{codes=await store.listCodes()||[]}catch(e){codes=[]}draw()}catch(e){const box=sh.querySelector('#adm');if(box)box.innerHTML=`<p class="note">${esc(e.message)}. 관리자 설정 글(admin.sql)을 실행했는지 확인해 주세요.</p>`}}
   load();
 }
 
@@ -494,7 +518,8 @@ function viewSet(){const s=S.settings;
   <div class="section"><h2>계정</h2>
     ${store.mode==='cloud'?`<p><span class="syncdot"></span>${esc(S.user?.email||'')} 로 로그인됨. 휴대폰·컴퓨터 어디서 로그인해도 같은 기록이 보여요.</p>
     ${S.plan?`<p>등급: <b>${S.plan.admin?'관리자':esc(PLANS[S.plan.plan]?.l||'무료')}</b>${S.plan.plan_until&&S.plan.plan==='friend'?` (${fmtDate(S.plan.plan_until)}까지)`:''} · 작품 ${S.records.filter(r=>r.type==='work').length}${S.plan.admin?'점':` / ${S.plan.work_limit}점`}</p>`:''}
-    ${S.plan?.admin?`<div class="actions"><button class="btn primary" id="admin">회원 관리</button></div>`:''}<div class="actions"><button class="btn" id="out">로그아웃</button></div>`
+    ${S.plan?.admin?`<div class="actions"><button class="btn primary" id="admin">회원 관리 · 초대 코드</button></div>`:''}
+    ${S.plan&&!S.plan.admin?`<div class="actions"><input id="code" class="btn" style="flex:1;min-width:0" placeholder="초대 코드 입력" aria-label="초대 코드" autocomplete="off"><button class="btn" id="codego">적용</button></div>`:''}<div class="actions"><button class="btn" id="out">로그아웃</button></div>`
       :`<p><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장되고, 다른 기기에서는 보이지 않아요.${!store.persistent()?' 이 브라우저는 저장이 막혀 있어 창을 닫으면 기록이 사라져요.':''}</p>`}</div>
   <div class="section"><h2>홈 화면에 앱 아이콘 놓기</h2>
     <p><b>아이폰:</b> 사파리에서 열고 아래쪽 공유 버튼 → "홈 화면에 추가"</p>
@@ -508,6 +533,7 @@ function viewSet(){const s=S.settings;
   document.querySelectorAll('[data-rg]').forEach(b=>b.onclick=async()=>{s.genres.splice(+b.dataset.rg,1);await saveS();render()});
   $('#addg').onclick=async()=>{const v=$('#newg').value.trim();if(!v||s.genres.includes(v))return;s.genres.push(v);await saveS();render()};
   $('#admin')?.addEventListener('click',openAdmin);
+  $('#codego')?.addEventListener('click',async()=>{const c=$('#code').value.trim();if(!c)return;try{const r=await store.redeem(c);toast(redeemMsg(r));S.plan=await store.myPlan();render()}catch(e){toast('초대 코드를 적용하지 못했어요')}});
   $('#out')?.addEventListener('click',async()=>{await store.signOut();S.records=[];S.user=null;viewLogin('in')});
   $('#csv').onclick=()=>{const ws=[...S.records.filter(r=>r.type==='work')].sort(byDate);
     const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
