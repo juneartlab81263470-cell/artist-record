@@ -1,5 +1,5 @@
 // 앱 화면 파일을 저장해 두어 빠르게 열리게 합니다. 기록 데이터는 저장하지 않습니다.
-const CACHE = 'artist-record-v28';
+const CACHE = 'artist-record-v29';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'vendor/supabase.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/wordmark.png', 'icons/wordmark-dark.png', 'privacy.html'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))); self.clients.claim(); });

@@ -29,7 +29,7 @@ const TYPES = {
   award:{label:'수상', fields:[
     {k:'title',l:'대회·공모전명',req:1},{k:'prize',l:'상 이름',ph:'특선, 입선, 대상'},{k:'host',l:'주최'},{k:'workId',l:'수상 작품',t:'worksel'},
     {k:'date',l:'수상일',t:'date'},{k:'note',l:'메모',t:'area'}],
-    slots:[{k:'main',l:'상장 사진',multi:1}]},
+    slots:[{k:'main',l:'상장 사진',multi:1},{k:'work',l:'수상 작품 사진',hint:'작품 기록이 없어도 여기 바로 넣을 수 있어요',multi:1}]},
   catalog:{label:'도록', fields:[
     {k:'title',l:'도록명',req:1},{k:'exhibitionId',l:'연결할 전시',t:'exsel'},{k:'publisher',l:'발행처'},
     {k:'date',l:'발행일',t:'date',half:1},{k:'pages',l:'내 작품 수록 쪽',ph:'p.24–25',half:1},{k:'note',l:'메모',t:'area'}],
@@ -368,7 +368,7 @@ function openEditor(rec){
       if(fd.t==='area')inp=`<textarea id="${id}" placeholder="${esc(fd.ph||'')}">${esc(v)}</textarea>`;
       else if(fd.t==='select')inp=`<select id="${id}">${fd.req?`<option value="" ${v?'':'selected'}>골라 주세요</option>`:''}${fd.opts.map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('')}</select>`;
       else if(fd.t==='exsel'){const exs=sorted(S.records.filter(x=>x.type==='exhibition'));inp=`<select id="${id}"><option value="">연결 안 함</option>${exs.map(x=>`<option value="${x.id}" ${v===x.id?'selected':''}>${esc(x.f.title)} (${esc((x.f.start||'').slice(0,4))})</option>`).join('')}</select>${exs.length?'':'<small class="note">아직 기록한 전시가 없어요. 전시를 먼저 추가하면 여기서 고를 수 있어요. 지금은 저장해 두고 나중에 연결해도 돼요.</small>'}`}
-      else if(fd.t==='worksel'){const ws=[...S.records.filter(x=>x.type==='work')].sort((a,b)=>(a.f.title||'').localeCompare(b.f.title||''));inp=`<select id="${id}"><option value="">연결 안 함</option>${ws.map(x=>`<option value="${x.id}" ${v===x.id?'selected':''}>${esc(x.f.title)}${x.f.year?' ('+esc(x.f.year)+')':''}</option>`).join('')}</select>${ws.length?'':'<small class="note">아직 기록한 작품이 없어요. 작품을 먼저 추가하면 여기서 고를 수 있어요. 지금은 저장해 두고 나중에 연결해도 돼요.</small>'}`}
+      else if(fd.t==='worksel'){const ws=[...S.records.filter(x=>x.type==='work')].sort((a,b)=>(a.f.title||'').localeCompare(b.f.title||''));inp=`<select id="${id}"><option value="">연결 안 함</option>${ws.map(x=>`<option value="${x.id}" ${v===x.id?'selected':''}>${esc(x.f.title)}${x.f.year?' ('+esc(x.f.year)+')':''}</option>`).join('')}</select>${ws.length?'':'<small class="note">아직 기록한 작품이 없어요. 작품 사진은 아래 \"수상 작품 사진\" 칸에 바로 넣을 수 있어요. 나중에 작품을 기록하면 여기서 연결할 수 있어요.</small>'}`}
       else inp=`<input id="${id}" type="${fd.t||'text'}" value="${esc(v)}" placeholder="${esc(fd.ph||'')}" ${fd.t==='number'?'inputmode="numeric"':''}>`;
       const el=`<div class="field"><label for="${id}">${fd.l}${fd.req?' *':''}</label>${inp}</div>`;
       if(fd.half)buf.push(el);else{flush();h+=el}}
