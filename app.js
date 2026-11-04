@@ -183,7 +183,7 @@ function viewLogin(mode='in',msg=''){
   $('.tabbar').hidden=true;
   const T={in:['로그인','기록을 보려면 로그인하세요.','로그인'],up:['가입하기','이메일과 비밀번호로 계정을 만들어요.','가입하기'],reset:['비밀번호 찾기','가입한 이메일로 재설정 링크를 보내요.','링크 보내기'],newpw:['새 비밀번호','새로 쓸 비밀번호를 정해 주세요.','저장']}[mode];
   $('#app').innerHTML=`<form class="login" id="lf" novalidate>
-    <h1><span class="seal">記</span>JALP</h1><div class="sub">JuneArtLab · 작가 활동기록</div>
+    <h1>JALP</h1><div class="sub">JuneArtLab · 작가 활동기록</div>
     <h2>${T[0]}</h2><p class="lead">${T[1]}</p>
     ${mode!=='newpw'?`<div class="field"><label for="le">이메일</label><input id="le" type="email" autocomplete="email" required></div>`:''}
     ${mode!=='reset'?`<div class="field"><label for="lp">비밀번호${mode!=='in'?' (8자 이상)':''}</label><input id="lp" type="password" autocomplete="${mode==='in'?'current-password':'new-password'}" required></div>`:''}
@@ -264,7 +264,7 @@ function viewList(){
   const counts=TYPE_ORDER.map(t=>[t,R.filter(r=>r.type===t).length]);
   const L=R.filter(r=>(S.ftype==='all'||r.type===S.ftype)&&(S.fgenre==='all'||(r.genres||[]).includes(S.fgenre)));
   $('#app').innerHTML=`
-  <div class="top"><div><h1><span class="seal">記</span>JALP</h1><div class="sub">JuneArtLab · ${esc(S.settings.name||'작가')} · 한 번 기록하고 제출처마다 골라 출력</div></div></div>
+  <div class="top"><div><h1>JALP</h1><div class="sub">JuneArtLab · ${esc(S.settings.name||'작가')} · 한 번 기록하고 제출처마다 골라 출력</div></div></div>
   ${installBanner()}
   ${S.notice?`<div class="banner notice"><div style="min-width:0"><b>📢 ${esc(S.notice.title)}</b>${S.notice.body?`<p style="margin:4px 0 0;white-space:pre-line">${esc(S.notice.body)}</p>`:''}</div><button class="btn small" id="ncl">닫기</button></div>`:''}
   ${store.mode==='local'?`<div class="banner"><span><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장돼요.</span></div>`:''}
@@ -473,7 +473,7 @@ function workOrderHTML(){const ws=candidateWorks();const o=S.out;
   <div class="worder">${ws.map((w,i)=>`<div class="wo"><label><input type="checkbox" data-wk="${w.id}" ${o.skip.includes(w.id)?'':'checked'}><span>${i+1}. ${esc(w.f.title)}${w.f.year?` <small>${esc(w.f.year)}</small>`:''}</span></label>
     <span class="mv"><button class="btn small" data-up="${i}" ${i===0?'disabled':''} aria-label="위로">위</button><button class="btn small" data-dn="${i}" ${i===ws.length-1?'disabled':''} aria-label="아래로">아래</button></span></div>`).join('')}</div></div>`}
 function viewOut(){const o=S.out;const sel=selection();const one=PRESETS[o.preset].oneGenre;
-  $('#app').innerHTML=`<div class="top"><div><h1><span class="seal">出</span>골라서 출력</h1><div class="sub">제출처를 고르면 필요한 항목만 모아 문서로 만들어요</div></div></div>
+  $('#app').innerHTML=`<div class="top"><div><h1>골라서 출력</h1><div class="sub">제출처를 고르면 필요한 항목만 모아 문서로 만들어요</div></div></div>
   <div class="presets">${Object.entries(PRESETS).map(([k,p])=>`<button class="preset" data-p="${k}" aria-pressed="${o.preset===k}"><b>${p.label}</b><span>${p.desc}</span></button>`).join('')}</div>
   <div class="section" id="oopts" style="margin-top:12px">
     <div class="field"><label for="otitle">문서 제목</label><input id="otitle" value="${esc(o.title)}"></div>
@@ -580,7 +580,7 @@ async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],notices=[],
 
 /* ---------- settings ---------- */
 function viewSet(){const s=S.settings;
-  $('#app').innerHTML=`<div class="top"><div><h1><span class="seal">設</span>설정</h1></div></div>
+  $('#app').innerHTML=`<div class="top"><div><h1>설정</h1></div></div>
   <div class="section"><div class="field"><label for="sname">작가 이름 (출력 문서에 들어가요)</label><input id="sname" value="${esc(s.name)}" placeholder="예: 홍길동 I 洪吉童 I Hong Gil-dong"></div>
     <div class="field"><label for="sedu">학력 (한 줄에 하나, 미술협회 약력에 들어가요)</label><textarea id="sedu" placeholder="○○대학교 미술대학 서양화과 졸업">${esc(s.edu||'')}</textarea></div>
     <div class="field"><label for="scur">현재 활동 (한 줄에 하나)</label><textarea id="scur" placeholder="한국미술협회 회원&#10;○○판화가협회 회원&#10;○○평생학습관 강사">${esc(s.current||'')}</textarea></div></div>
