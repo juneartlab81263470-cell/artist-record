@@ -46,6 +46,7 @@ const PRESETS = {
   portfolio:{label:'장르별 포트폴리오',desc:'표지, 약력, 한 쪽에 한 작품',title:'포트폴리오',types:['work','exhibition','award'],years:0,photos:true,oneGenre:true,layout:'book'},
   custom:{label:'직접 고르기',desc:'항목·기간·장르를 직접 선택',title:'활동 기록',types:['work','exhibition','award','catalog','class'],years:0,photos:true}
 };
+const PLANS={free:{l:'무료',n:10},friend:{l:'지인·협회 무료',n:100},basic:{l:'베이직',n:20},pro:{l:'프로',n:100}};
 const DEFAULT_SETTINGS={name:'',genres:['회화','판화','서예','한국화','서양화','공예']};
 
 /* ---------- helpers ---------- */
@@ -135,6 +136,10 @@ function CloudStore(cfg){
         const {data}=await sb.storage.from(BUCKET).createSignedUrls(chunk,3600);
         (data||[]).forEach(d=>{if(d.signedUrl)urls.set(d.path,{url:d.signedUrl,exp:now+3.3e6})})}
     },
+    async touch(){await sb.rpc('touch_member')},
+    async myPlan(){const {data,error}=await sb.rpc('my_plan');if(error)throw error;return Array.isArray(data)?data[0]:data},
+    async adminMembers(){const {data,error}=await sb.rpc('admin_members');fail(error,'회원 목록을 불러오지 못했어요');return data},
+    async updateMember(id,patch){const {error}=await sb.from('members').update(patch).eq('user_id',id);fail(error,'회원 정보를 저장하지 못했어요')},
     url:p=>p.src||urls.get(p.path)?.url||'',
     async photoData(p){if(p.src)return p.src;const {data}=await sb.storage.from(BUCKET).download(p.path);return data?blobToDataURL(data):''}
   };
@@ -144,7 +149,7 @@ function CloudStore(cfg){
 const cfg=window.APP_CONFIG||{};
 const cloudReady=!!(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY&&window.supabase);
 const store=cloudReady?CloudStore(cfg):LocalStore();
-const S={records:[],settings:{...DEFAULT_SETTINGS,genres:[...DEFAULT_SETTINGS.genres]},tab:'list',view:'list',ftype:'all',fgenre:'all',user:null,
+const S={records:[],settings:{...DEFAULT_SETTINGS,genres:[...DEFAULT_SETTINGS.genres]},tab:'list',view:'list',plan:null,ftype:'all',fgenre:'all',user:null,
   out:{preset:'artproof',types:[],years:5,genres:[],photos:true,title:'',layout:'list',desc:'ko',order:[],skip:[]}};
 
 function subline(r){const f=r.f||{};switch(r.type){
@@ -189,6 +194,7 @@ async function afterLogin(){
     const st=await store.getSettings();if(st)S.settings=st;
     S.records=await store.list();await store.photoURLs(S.records);
   }catch(e){toast(e.message)}
+  if(store.touch){try{await store.touch();S.plan=await store.myPlan()}catch(e){S.plan=null}}
   applyPreset('artproof');$('.tabbar').hidden=false;setTab('list');
 }
 
@@ -267,10 +273,12 @@ function openEditor(rec){
     const keep=new Set(TYPES[r.type].slots.map(s=>s.k));r.photos=r.photos.filter(p=>keep.has(p.slot));
     // 화면에 쓰지 않는 칸 정리
     const fk=new Set(TYPES[r.type].fields.map(f=>f.k));for(const k of Object.keys(r.f))if(!fk.has(k))delete r.f[k];
+    if(r.type==='work'&&(!rec||rec.type!=='work')&&S.plan){const n=S.records.filter(x=>x.type==='work').length;
+      if(n>=S.plan.work_limit){toast(`지금 등급(${PLANS[S.plan.plan]?.l||'무료'})에서는 작품을 ${S.plan.work_limit}점까지 올릴 수 있어요`);return}}
     busy=true;draw();
-    try{const saved=await store.save(r,rec);saved.updated=new Date().toISOString();
+    try{const saved=await store.save(r,rec);if(S.plan&&r.type==='work'&&!rec)S.plan.work_count++;saved.updated=new Date().toISOString();
       const i=S.records.findIndex(x=>x.id===r.id);if(i>=0)S.records[i]=saved;else S.records.push(saved);close();toast('저장했어요')}
-    catch(e){busy=false;draw();toast(e.message)}}
+    catch(e){busy=false;draw();toast(/WORK_LIMIT/.test(e.message+(e.cause||''))?'지금 등급에서 올릴 수 있는 작품 수를 넘었어요':e.message)}}
   function close(){sh.hidden=true;sh.innerHTML='';document.body.style.overflow='';render()}
   draw();sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
 }
@@ -387,6 +395,40 @@ function openPreview(text){const sh=$('#sheet');
     const t=document.title;document.title=S.out.title||'활동기록';window.print();document.title=t});
 }
 
+/* ---------- admin ---------- */
+async function openAdmin(){const sh=$('#sheet');let list=[],q='';
+  sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">닫기</button><b>회원 관리</b><button class="btn" id="reload">새로고침</button></div></div><div class="wrap" id="adm"><div class="loading">불러오는 중…</div></div>`;
+  sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
+  sh.querySelector('#cancel').onclick=()=>{sh.hidden=true;sh.innerHTML='';document.body.style.overflow='';render()};
+  sh.querySelector('#reload').onclick=load;
+  const day=d=>d?fmtDate(String(d).slice(0,10)):'';
+  const ago=d=>{if(!d)return'';const n=Math.floor((Date.now()-new Date(d))/864e5);return n<=0?'오늘':n===1?'어제':n+'일 전'};
+  function limitOf(m){if(m.user_id===S.user?.id&&S.plan?.admin)return '∞';if(m.plan==='friend'&&m.plan_until&&m.plan_until<new Date().toISOString().slice(0,10))return 10;return PLANS[m.plan]?.n??10}
+  function draw(){const box=sh.querySelector('#adm');if(!box)return;
+    const L=list.filter(m=>!q||(m.email||'').includes(q)||(m.name||'').includes(q)||(m.memo||'').includes(q));
+    const cnt=k=>list.filter(m=>m.plan===k).length;const week=list.filter(m=>m.last_seen&&Date.now()-new Date(m.last_seen)<7*864e5).length;
+    const soon=list.filter(m=>m.plan==='friend'&&m.plan_until&&(new Date(m.plan_until)-Date.now())<30*864e5).length;
+    box.innerHTML=`<div class="stats" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat"><b>${list.length}</b><span>전체 회원</span></div><div class="stat"><b>${week}</b><span>7일 내 접속</span></div><div class="stat"><b>${soon}</b><span>무료 30일 내 만료</span></div></div>
+      <div class="stats" style="grid-template-columns:repeat(4,1fr)">${Object.entries(PLANS).map(([k,p])=>`<div class="stat"><b>${cnt(k)}</b><span>${p.l}</span></div>`).join('')}</div>
+      <div class="field" style="margin-bottom:10px"><label for="aq">찾기 (이메일·이름·메모)</label><input id="aq" value="${esc(q)}"></div>
+      <div class="list">${L.map(m=>`<div class="section mem" data-u="${m.user_id}">
+        <div><b>${esc(m.name||'(이름 없음)')}</b> <span class="note">${esc(m.email||'')}</span></div>
+        <p>가입 ${day(m.created_at)} · 마지막 접속 ${ago(m.last_seen)} · 작품 ${m.work_count} / ${limitOf(m)}점 · 전체 기록 ${m.record_count}건</p>
+        <div class="row2"><div class="field"><label for="ap_${m.user_id}">등급</label><select id="ap_${m.user_id}">${Object.entries(PLANS).map(([k,p])=>`<option value="${k}" ${m.plan===k?'selected':''}>${p.l} (${p.n}점)</option>`).join('')}</select></div>
+        <div class="field"><label for="au_${m.user_id}">무료 기간 끝나는 날</label><input type="date" id="au_${m.user_id}" value="${m.plan_until||''}"></div></div>
+        <div class="field"><label for="am_${m.user_id}">메모</label><input id="am_${m.user_id}" value="${esc(m.memo||'')}" placeholder="예: ○○협회 소개, 3월 워크숍 수강생"></div>
+        <div class="actions"><button class="btn small primary" data-save="${m.user_id}">저장</button>${m.plan==='friend'?`<button class="btn small" data-six="${m.user_id}">오늘부터 6개월</button>`:''}</div></div>`).join('')||'<div class="empty">회원이 없어요.</div>'}</div>`;
+    box.querySelector('#aq').oninput=e=>{q=e.target.value.trim();const pos=e.target.selectionStart;draw();const el=box.querySelector('#aq');el.focus();el.setSelectionRange(pos,pos)};
+    box.querySelectorAll('[data-six]').forEach(b=>b.onclick=()=>{const d=new Date();d.setMonth(d.getMonth()+6);box.querySelector('#au_'+b.dataset.six).value=d.toISOString().slice(0,10)});
+    box.querySelectorAll('[id^=ap_]').forEach(sel=>sel.onchange=()=>{const m=list.find(x=>x.user_id===sel.id.slice(3));m.plan=sel.value;m.memo=box.querySelector('#am_'+m.user_id).value;m.plan_until=box.querySelector('#au_'+m.user_id).value||null;draw()});
+    box.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{const id=b.dataset.save;const patch={plan:box.querySelector('#ap_'+id).value,plan_until:box.querySelector('#au_'+id).value||null,memo:box.querySelector('#am_'+id).value.trim()};
+      b.disabled=true;try{await store.updateMember(id,patch);Object.assign(list.find(x=>x.user_id===id),patch);toast('저장했어요');draw()}catch(e){toast(e.message);b.disabled=false}});
+  }
+  async function load(){try{list=await store.adminMembers()||[];draw()}catch(e){const box=sh.querySelector('#adm');if(box)box.innerHTML=`<p class="note">${esc(e.message)}. 관리자 설정 글(admin.sql)을 실행했는지 확인해 주세요.</p>`}}
+  load();
+}
+
 /* ---------- settings ---------- */
 function viewSet(){const s=S.settings;
   $('#app').innerHTML=`<div class="top"><div><h1><span class="seal">設</span>설정</h1></div></div>
@@ -395,7 +437,9 @@ function viewSet(){const s=S.settings;
     <div class="genrelist">${s.genres.map((g,i)=>`<div class="g"><span>${esc(g)}</span><button class="btn small" data-rg="${i}" ${s.genres.length<2?'disabled':''}>빼기</button></div>`).join('')}</div>
     <div class="actions"><input id="newg" class="btn" style="flex:1;min-width:0" placeholder="새 장르 (예: 회화)" aria-label="새 장르"><button class="btn" id="addg">추가</button></div></div>
   <div class="section"><h2>계정</h2>
-    ${store.mode==='cloud'?`<p><span class="syncdot"></span>${esc(S.user?.email||'')} 로 로그인됨. 휴대폰·컴퓨터 어디서 로그인해도 같은 기록이 보여요.</p><div class="actions"><button class="btn" id="out">로그아웃</button></div>`
+    ${store.mode==='cloud'?`<p><span class="syncdot"></span>${esc(S.user?.email||'')} 로 로그인됨. 휴대폰·컴퓨터 어디서 로그인해도 같은 기록이 보여요.</p>
+    ${S.plan?`<p>등급: <b>${S.plan.admin?'관리자':esc(PLANS[S.plan.plan]?.l||'무료')}</b>${S.plan.plan_until&&S.plan.plan==='friend'?` (${fmtDate(S.plan.plan_until)}까지)`:''} · 작품 ${S.records.filter(r=>r.type==='work').length}${S.plan.admin?'점':` / ${S.plan.work_limit}점`}</p>`:''}
+    ${S.plan?.admin?`<div class="actions"><button class="btn primary" id="admin">회원 관리</button></div>`:''}<div class="actions"><button class="btn" id="out">로그아웃</button></div>`
       :`<p><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장되고, 다른 기기에서는 보이지 않아요.${!store.persistent()?' 이 브라우저는 저장이 막혀 있어 창을 닫으면 기록이 사라져요.':''}</p>`}</div>
   <div class="section"><h2>홈 화면에 앱 아이콘 놓기</h2>
     <p><b>아이폰:</b> 사파리에서 열고 아래쪽 공유 버튼 → "홈 화면에 추가"</p>
@@ -406,6 +450,7 @@ function viewSet(){const s=S.settings;
   $('#sname').onchange=async e=>{s.name=e.target.value.trim();await saveS();toast('저장했어요')};
   document.querySelectorAll('[data-rg]').forEach(b=>b.onclick=async()=>{s.genres.splice(+b.dataset.rg,1);await saveS();render()});
   $('#addg').onclick=async()=>{const v=$('#newg').value.trim();if(!v||s.genres.includes(v))return;s.genres.push(v);await saveS();render()};
+  $('#admin')?.addEventListener('click',openAdmin);
   $('#out')?.addEventListener('click',async()=>{await store.signOut();S.records=[];S.user=null;viewLogin('in')});
   $('#csv').onclick=()=>{const ws=[...S.records.filter(r=>r.type==='work')].sort((a,b)=>(a.f.year||'').localeCompare(b.f.year||'')||(a.f.code||'').localeCompare(b.f.code||''));
     const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
