@@ -206,15 +206,45 @@ function viewList(){
   $('#app').innerHTML=`
   <div class="top"><div><h1><span class="seal">記</span>활동 기록</h1><div class="sub">${esc(S.settings.name||'작가')} · 한 번 기록하고 제출처마다 골라 출력</div></div></div>
   ${store.mode==='local'?`<div class="banner"><span><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장돼요.</span></div>`:''}
-  <div class="stats">${counts.map(([t,n])=>`<div class="stat"><b>${n}</b><span>${TYPES[t].label}</span></div>`).join('')}</div>
+  <div class="stats">${counts.map(([t,n])=>`<button class="stat" data-ft="${t}" aria-pressed="${S.ftype===t}"><b>${n}</b><span>${TYPES[t].label}</span></button>`).join('')}</div>
+  ${yearLine()}
   <div class="chips" role="group" aria-label="종류">${['all',...TYPE_ORDER].map(t=>`<button class="chip" data-ft="${t}" aria-pressed="${S.ftype===t}">${t==='all'?'전체':TYPES[t].label}</button>`).join('')}</div>
   <div class="chips" role="group" aria-label="장르">${['all',...S.settings.genres].map(g=>`<button class="chip" data-fg="${esc(g)}" aria-pressed="${S.fgenre===g}">${g==='all'?'모든 장르':esc(g)}</button>`).join('')}</div>
-  <div class="viewtog"><button class="chip" data-vw="list" aria-pressed="${S.view==='list'}">목록</button><button class="chip" data-vw="grid" aria-pressed="${S.view==='grid'}">사진 보기</button></div>
-  <div class="${S.view==='grid'?'pgrid':'list'}">${L.length?sorted(L).map(S.view==='grid'?pcard:card).join(''):R.length?`<div class="empty">이 조건에 맞는 기록이 없어요.</div>`:`<div class="empty">아직 기록이 없어요.<br>아래 <b>+ 추가</b>로 첫 기록을 남겨 보세요.<br><br>작품, 전시, 수상, 도록, 강의를 기록해 두면<br>출력 탭에서 제출처별 문서로 골라 뽑을 수 있어요.</div>`}</div>`;
-  document.querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>{S.ftype=b.dataset.ft;render()});
+  <div class="viewtog">${[['list','목록'],['grid','사진 보기'],['table','표 보기']].map(([k,l])=>`<button class="chip" data-vw="${k}" aria-pressed="${S.view===k}">${l}</button>`).join('')}<span class="note" style="margin-left:auto;align-self:center">${L.length}건</span></div>
+  <div class="${S.view==='grid'?'pgrid':S.view==='table'?'':'list'}">${L.length?(S.view==='table'?tableHTML(sorted(L)):sorted(L).map(S.view==='grid'?pcard:card).join('')):R.length?`<div class="empty">이 조건에 맞는 기록이 없어요.</div>`:`<div class="empty">아직 기록이 없어요.<br>아래 <b>+ 추가</b>로 첫 기록을 남겨 보세요.<br><br>작품, 전시, 수상, 도록, 강의를 기록해 두면<br>출력 탭에서 제출처별 문서로 골라 뽑을 수 있어요.</div>`}</div>`;
+  document.querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>{S.ftype=(b.classList.contains('stat')&&S.ftype===b.dataset.ft)?'all':b.dataset.ft;render()});
   document.querySelectorAll('[data-fg]').forEach(b=>b.onclick=()=>{S.fgenre=b.dataset.fg;render()});
   document.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{S.view=b.dataset.vw;render()});
-  document.querySelectorAll('.card,.pcard').forEach(b=>b.onclick=()=>openEditor(S.records.find(r=>r.id===b.dataset.id)));
+  document.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(S.records.find(r=>r.id===b.dataset.id)));
+}
+function yearLine(){const y=String(new Date().getFullYear());const R=S.records.filter(r=>dateOf(r).startsWith(y));if(!S.records.length)return'';
+  const n=t=>R.filter(r=>r.type===t).length;const parts=[['exhibition','전시','회'],['award','수상','건'],['work','새 작품','점'],['class','강의','건']].filter(([t])=>n(t)).map(([t,l,u])=>`${l} ${n(t)}${u}`);
+  return `<p class="yearline">${y}년 ${parts.length?parts.join(' · '):'아직 기록이 없어요'}</p>`}
+function tableHTML(L){const onlyWork=L.every(r=>r.type==='work');
+  const th=onlyWork?['','사진','작품명','제작연도','크기','기법·재료','에디션','수상']:['','사진','종류','제목','날짜','내용'];
+  return `<div class="tblwrap"><table class="tbl"><thead><tr>${th.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${L.map((r,i)=>{const p=(r.photos||[])[0];const u=p&&store.url(p);const f=r.f;
+    const img=`<td>${u?`<img src="${esc(u)}" alt="" loading="lazy">`:''}</td>`;
+    return onlyWork?`<tr data-id="${r.id}"><td class="n">${i+1}</td>${img}<td><b>${esc(f.title)}</b>${workTitles(f)?`<small>${esc(workTitles(f))}</small>`:''}</td><td class="n">${esc(f.year||'')}</td><td>${esc(f.size||'')}</td><td>${esc(f.medium||'')}</td><td>${esc(f.edition||'')}</td><td>${esc(awardsFor(r).join(', '))}</td></tr>`
+      :`<tr data-id="${r.id}"><td class="n">${i+1}</td>${img}<td><span class="pill type">${TYPES[r.type].label}</span></td><td><b>${esc(f.title)}</b></td><td class="n">${esc(fmtDate(dateOf(r)))}</td><td>${esc(subline(r))}</td></tr>`}).join('')}</tbody></table></div>`}
+function openDetail(r){if(!r)return;const sh=$('#sheet');const T=TYPES[r.type];
+  const rows=T.fields.filter(fd=>r.f[fd.k]&&fd.k!=='title').map(fd=>{let v=r.f[fd.k];
+    if(fd.t==='exsel'||fd.t==='worksel'){const x=S.records.find(y=>y.id===v);return x?`<div class="dr"><dt>${fd.l}</dt><dd><button class="linkbtn" data-go="${x.id}">${esc(x.f.title)}</button></dd></div>`:''}
+    if(fd.t==='date')v=fmtDate(v);
+    return `<div class="dr"><dt>${fd.l}</dt><dd>${esc(v)}</dd></div>`}).join('');
+  const linked=S.records.filter(x=>x.f.exhibitionId===r.id||x.f.workId===r.id);
+  sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">닫기</button><b>${T.label}</b><button class="btn primary" id="edit">수정</button></div></div>
+  <div class="wrap detail"><h1>${esc(r.f.title||'(제목 없음)')}</h1>
+    ${r.type==='work'&&workTitles(r.f)?`<p class="dsub2">${esc(workTitles(r.f))}</p>`:''}
+    <div class="tags" style="margin:8px 0 14px"><span class="pill type">${T.label}</span>${(r.genres||[]).map(g=>`<span class="pill">${esc(g)}</span>`).join('')}</div>
+    ${T.slots.map(sl=>{const ps=r.photos.filter(p=>p.slot===sl.k);return ps.length?`<div class="dph"><span class="flabel">${sl.l}</span>${ps.map(p=>`<img src="${esc(store.url(p))}" alt="${sl.l}">`).join('')}</div>`:''}).join('')}
+    <dl class="dl">${rows||'<p class="note">적힌 정보가 없어요. 수정을 눌러 채워 보세요.</p>'}</dl>
+    ${linked.length?`<h2 style="margin-top:18px">연결된 기록</h2><div class="list" style="margin-top:8px">${linked.map(card).join('')}</div>`:''}
+  </div>`;
+  sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
+  const close=()=>{sh.hidden=true;sh.innerHTML='';document.body.style.overflow=''};
+  sh.querySelector('#cancel').onclick=close;
+  sh.querySelector('#edit').onclick=()=>openEditor(r);
+  sh.querySelectorAll('[data-go],.detail .card').forEach(b=>b.onclick=()=>openDetail(S.records.find(x=>x.id===(b.dataset.go||b.dataset.id))));
 }
 function pcard(r){const p=(r.photos||[])[0];const u=p&&store.url(p);const T=TYPES[r.type];
   return `<button class="pcard" data-id="${r.id}"><span class="pimg">${u?`<img src="${esc(u)}" alt="" loading="lazy">`:T.label[0]}</span><span class="pm"><b>${esc(r.f.title||'(제목 없음)')}</b><span>${esc(r.type==='work'?workTitles(r.f)||workMeta(r.f):subline(r))}</span>${r.type==='work'&&workTitles(r.f)?`<span>${esc(workMeta(r.f))}</span>`:''}</span></button>`}
