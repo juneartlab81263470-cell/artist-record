@@ -207,7 +207,7 @@ function viewLogin(mode='in',msg=''){
       else if(mode==='reset'){await store.resetPassword(em);viewLogin('in','재설정 메일을 보냈어요. 메일의 링크를 누르면 새 비밀번호를 정할 수 있어요.')}
       else if(mode==='newpw'){if(pw.length<8)throw new Error('비밀번호를 8자 이상으로 정해 주세요');await store.updatePassword(pw);toast('비밀번호를 바꿨어요');await afterLogin()}
     }catch(err){go.disabled=false;const m=String(err.message||err);
-      viewLogin(mode,/Invalid login/i.test(m)?'이메일 또는 비밀번호가 맞지 않아요':/not confirmed/i.test(m)?'메일함의 확인 링크를 먼저 눌러 주세요':/already registered/i.test(m)?'이미 가입된 이메일이에요. 로그인해 주세요':m)}};
+      viewLogin(mode,/Invalid login/i.test(m)?`로그인이 안 됐어요. 이메일(${em})이 가입한 주소가 맞는지 먼저 확인하고, 맞다면 비밀번호를 다시 넣어 주세요.`:/not confirmed/i.test(m)?'메일함의 확인 링크를 먼저 눌러 주세요':/already registered/i.test(m)?'이미 가입된 이메일이에요. 로그인해 주세요':m);if(em&&$('#le'))$('#le').value=em}};
 }
 function chLinks(){const k=cfg.KAKAO_CHANNEL_URL;return `<div class="actions" style="font-size:.85rem">${k?`<a class="btn small kakao" href="${esc(k)}" target="_blank" rel="noopener">카카오톡 채널 추가</a>`:''}<a class="btn small" href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div>`}
 const HELPQ=[['what','무엇을 표현했나요?','예: 활짝 핀 모란, 어머니의 뒷모습'],['how','어떤 재료와 기법으로 만들었나요?','예: 목판에 여러 번 찍는 소멸기법'],['heart','작업할 때 어떤 마음이었나요?','예: 꽃이 열리는 순간을 기다리는 설렘이 있었다'],['feel','보는 사람이 무엇을 느꼈으면 하나요?','예: 고요함 속의 기쁨']];
