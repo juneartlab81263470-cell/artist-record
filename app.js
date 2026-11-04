@@ -25,7 +25,7 @@ const TYPES = {
     {k:'title',l:'전시명',req:1},{k:'kind',l:'구분',t:'select',req:1,opts:['개인전','단체전','초대전','아트페어','공모전']},
     {k:'venue',l:'장소'},{k:'start',l:'시작일',t:'date',half:1},{k:'end',l:'종료일',t:'date',half:1},
     {k:'host',l:'주최',half:1},{k:'organizer',l:'주관',half:1},{k:'note',l:'메모',t:'area'}],
-    slots:[{k:'poster',l:'포스터·리플렛',multi:1},{k:'venue',l:'전시장 사진',hint:'전경, 작품이 걸린 모습',multi:1},{k:'main',l:'기타 증빙',hint:'초대장, 기사 등',multi:1}]},
+    slots:[{k:'ccover',l:'도록 표지',need:'필수'},{k:'cinner',l:'도록 내지',need:'선택',hint:'판권면, 참여작가 명단 등'},{k:'cpage',l:'도록 작품 페이지',need:'필수',hint:'내 작품이 실린 쪽',multi:1},{k:'venue',l:'전시장 사진',need:'필수',hint:'전경, 작품이 걸린 모습',multi:1},{k:'works',l:'출품 작품 사진',hint:'작품 기록이 없어도 여기 바로 넣을 수 있어요',multi:1},{k:'poster',l:'포스터·리플렛',multi:1},{k:'main',l:'기타 증빙',hint:'초대장, 기사 등',multi:1}]},
   award:{label:'수상', fields:[
     {k:'title',l:'대회·공모전명',req:1},{k:'prize',l:'상 이름',ph:'특선, 입선, 대상'},{k:'host',l:'주최'},{k:'workId',l:'수상 작품',t:'worksel'},
     {k:'date',l:'수상일',t:'date'},{k:'note',l:'메모',t:'area'}],
@@ -419,6 +419,10 @@ function line(r){const f=r.f;switch(r.type){
   case'class':return`「${f.title}」${f.org?', '+f.org:''}${f.sessions?' ('+f.sessions+')':''}`;
   case'catalog':return`『${f.title}』${f.publisher?', '+f.publisher:''}${f.pages?', '+f.pages:''}`;
   case'work':return`「${f.title}」${f.titleEn?' '+f.titleEn:''}${[f.year,f.medium,f.size,f.edition].filter(Boolean).map(x=>', '+x).join('')}`}}
+function evPhotos(r,lc){const ORD=['ccover','cinner','cpage','venue','works','poster','main'];const CM={cover:'ccover',colophon:'cinner',mypage:'cpage'};
+  const out=[];lc.forEach(c=>TYPES.catalog.slots.forEach(sl=>c.photos.filter(p=>p.slot===sl.k).forEach(p=>out.push({p,l:'도록 '+sl.l,k:CM[sl.k]}))));
+  TYPES.exhibition.slots.forEach(sl=>r.photos.filter(p=>p.slot===sl.k).forEach(p=>out.push({p,l:sl.l,k:sl.k})));
+  return out.map((x,i)=>[x,i]).sort((a,b)=>ORD.indexOf(a[0].k)-ORD.indexOf(b[0].k)||a[1]-b[1]).map(a=>a[0])}
 function docBody(img=p=>store.url(p),listOnly=false){const o=S.out,sel=selection();const by=t=>sel.filter(r=>r.type===t);const yr=r=>{const d=dateOf(r);return d?d.slice(0,4)+(d.length>4?'. '+(+d.slice(5,7)):''):''};
   const ul=arr=>`<ul>${arr.map(r=>`<li><span class="y">${yr(r)}</span><span>${esc(line(r))}</span></li>`).join('')}</ul>`;
   const exs=by('exhibition'),solo=exs.filter(r=>r.f.kind==='개인전'),group=exs.filter(r=>r.f.kind!=='개인전');
@@ -437,11 +441,11 @@ function docBody(img=p=>store.url(p),listOnly=false){const o=S.out,sel=selection
     const works=orderedWorks(sel);
     if(works.length)h+=`<h2>작품</h2><div class="grid">${works.map(r=>{const p=r.photos.find(p=>p.slot==='main');return`<figure>${p?`<img src="${esc(img(p))}" alt="">`:''}<figcaption>${esc(line(r))}</figcaption></figure>`}).join('')}</div>`;
     const fig=(p,l)=>`<figure><img src="${esc(img(p))}" alt=""><figcaption>${esc(l)}</figcaption></figure>`;
-    const EVORD={exhibition:['venue','poster','main']};const slotsOf=r=>{const o=EVORD[r.type],sl=TYPES[r.type].slots;return o?o.map(k=>sl.find(x=>x.k===k)).filter(Boolean):sl};
+    const EVORD={exhibition:['ccover','cinner','cpage','venue','works','poster','main']};const slotsOf=r=>{const o=EVORD[r.type],sl=TYPES[r.type].slots;return o?o.map(k=>sl.find(x=>x.k===k)).filter(Boolean):sl};
     const photosOf=(r,pre='')=>slotsOf(r).flatMap(sl=>r.photos.filter(p=>p.slot===sl.k).map(p=>fig(p,pre+sl.l))).join('');
     const cats=by('catalog');const usedCat=new Set();let evh='';
     for(const r of exs){const f=r.f;const lc=cats.filter(c=>c.f.exhibitionId===r.id);lc.forEach(c=>usedCat.add(c.id));
-      const ph=lc.map(c=>photosOf(c,'도록 ')).join('')+photosOf(r);
+      const ph=evPhotos(r,lc).map(x=>fig(x.p,x.l)).join('');
       if(!ph&&!lc.length)continue;
       evh+=`<div class="ev"><h3>${f.kind?`[${esc(f.kind)}] `:'전시 · '}「${esc(f.title)}」</h3>
         <table class="evinfo">${[['구분',f.kind],['기간',fmtRange(f.start,f.end)],['장소',f.venue],['주최',f.host],['주관',f.organizer],...lc.map(c=>['도록',`『${c.f.title}』${c.f.publisher?', '+c.f.publisher:''}${c.f.date?', '+fmtDate(c.f.date)+' 발행':''}${c.f.pages?', 수록 '+c.f.pages:''}`])].filter(x=>x[1]).map(([k,v])=>`<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</table>
@@ -532,10 +536,8 @@ function safeName(t){return String(t||'').replace(/[\\/:*?"<>|]+/g,' ').replace(
 async function downloadPhoto(url,name){try{const res=await fetch(url);const blob=await res.blob();const ext=(blob.type.split('/')[1]||'jpg').replace('jpeg','jpg');
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name+'.'+ext;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);return true}catch(e){console.error("dl",e);window.open(url,"_blank");return false}}
 function entryItems(){const sel=selection();const cats=S.records.filter(r=>r.type==='catalog');
-  const EV=['venue','poster','main'];
   return sel.filter(r=>r.type==='exhibition').map(r=>{const f=r.f;const lc=cats.filter(c=>c.f.exhibitionId===r.id);
-    const photos=[];lc.forEach(c=>TYPES.catalog.slots.forEach(sl=>c.photos.filter(p=>p.slot===sl.k).forEach(p=>photos.push({p,l:'도록 '+sl.l}))));
-    EV.forEach(k=>{const sl=TYPES.exhibition.slots.find(x=>x.k===k);r.photos.filter(p=>p.slot===k).forEach(p=>photos.push({p,l:sl.l}))});
+    const photos=evPhotos(r,lc);
     const rows=[['활동명(전시명)',f.title],['구분',f.kind],['시작일',f.start?f.start.replace(/-/g,'.'):''],['종료일',f.end?f.end.replace(/-/g,'.'):''],['기간',fmtRange(f.start,f.end)],['장소',f.venue],['주최',f.host],['주관',f.organizer],
       ...lc.map(c=>['도록',`${c.f.title||''}${c.f.publisher?', '+c.f.publisher:''}${c.f.date?', '+fmtDate(c.f.date)+' 발행':''}${c.f.pages?', 수록 '+c.f.pages:''}`])].filter(x=>x[1]);
     return {r,rows,photos}})}
