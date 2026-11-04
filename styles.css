@@ -108,6 +108,12 @@ button{cursor:pointer}
 .doc figcaption{font-size:11.5px;color:#333;margin-top:4px}
 .doc .ev{break-inside:avoid;margin-bottom:16px}
 .doc .ev h3{font-size:13px;font-family:var(--body);font-weight:600;margin-bottom:6px}
+.doc .evinfo{border-collapse:collapse;margin:0 0 8px;font-size:12px}
+.doc .evinfo th{text-align:left;font-weight:500;color:#555;padding:2px 12px 2px 0;white-space:nowrap;vertical-align:top}
+.doc .evinfo td{padding:2px 0}
+.doc ul.plain li{display:block}
+.doc h2,.doc h3{break-after:avoid}
+.doc .ev h3{break-after:avoid}
 .doc .foot{margin-top:28px;font-size:11px;color:#777;text-align:right}
 @media (prefers-reduced-motion:no-preference){.card,.chip,.btn{transition:background .15s,border-color .15s}}
 
@@ -205,6 +211,7 @@ button{cursor:pointer}
   #sheet .wrap{padding:0;max-width:none}
   .docwrap{padding:0;overflow:visible}
   .doc{box-shadow:none;max-width:none;padding:0}
+  .doc h2.evh{break-before:page}
   .book{display:block}
   .book .page{width:auto;max-width:none;aspect-ratio:auto;height:265mm;padding:0;box-shadow:none;break-after:page;page-break-after:always;overflow:hidden}
   .book .page.cvpage{height:auto;min-height:265mm;overflow:visible}
