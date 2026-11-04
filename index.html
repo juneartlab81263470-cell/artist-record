@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>작가 활동기록</title>
+<meta name="description" content="작품·전시·수상·도록·강의를 한 번 기록하고 제출처별로 골라 출력하는 작가용 앱">
+<meta name="theme-color" content="#2c4a7a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="활동기록">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px)}</style>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap" id="app"><div class="loading">불러오는 중…</div></div>
+<nav class="tabbar" aria-label="메뉴" hidden><div class="in">
+  <button data-tab="list"><span class="ic">録</span>기록</button>
+  <button data-tab="add" class="add"><span class="ic">+</span>추가</button>
+  <button data-tab="out"><span class="ic">出</span>출력</button>
+  <button data-tab="set"><span class="ic">設</span>설정</button>
+</div></nav>
+<div id="sheet" class="sheet" hidden></div>
+<div id="toast" class="toast" hidden></div>
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
