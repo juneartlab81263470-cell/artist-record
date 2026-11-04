@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 /* =========================================================
-   JAL — 설치형 웹앱
+   JALP — 설치형 웹앱
    - config.js에 Supabase 정보가 있으면: 로그인 + 기기 간 동기화
    - 없으면: 이 기기에만 저장하는 체험 모드
    ========================================================= */
@@ -183,7 +183,7 @@ function viewLogin(mode='in',msg=''){
   $('.tabbar').hidden=true;
   const T={in:['로그인','기록을 보려면 로그인하세요.','로그인'],up:['가입하기','이메일과 비밀번호로 계정을 만들어요.','가입하기'],reset:['비밀번호 찾기','가입한 이메일로 재설정 링크를 보내요.','링크 보내기'],newpw:['새 비밀번호','새로 쓸 비밀번호를 정해 주세요.','저장']}[mode];
   $('#app').innerHTML=`<form class="login" id="lf" novalidate>
-    <h1><span class="seal">記</span>JAL</h1><div class="sub">JuneArtLab · 작가 활동기록</div>
+    <h1><span class="seal">記</span>JALP</h1><div class="sub">JuneArtLab · 작가 활동기록</div>
     <h2>${T[0]}</h2><p class="lead">${T[1]}</p>
     ${mode!=='newpw'?`<div class="field"><label for="le">이메일</label><input id="le" type="email" autocomplete="email" required></div>`:''}
     ${mode!=='reset'?`<div class="field"><label for="lp">비밀번호${mode!=='in'?' (8자 이상)':''}</label><input id="lp" type="password" autocomplete="${mode==='in'?'current-password':'new-password'}" required></div>`:''}
@@ -264,7 +264,7 @@ function viewList(){
   const counts=TYPE_ORDER.map(t=>[t,R.filter(r=>r.type===t).length]);
   const L=R.filter(r=>(S.ftype==='all'||r.type===S.ftype)&&(S.fgenre==='all'||(r.genres||[]).includes(S.fgenre)));
   $('#app').innerHTML=`
-  <div class="top"><div><h1><span class="seal">記</span>JAL</h1><div class="sub">JuneArtLab · ${esc(S.settings.name||'작가')} · 한 번 기록하고 제출처마다 골라 출력</div></div></div>
+  <div class="top"><div><h1><span class="seal">記</span>JALP</h1><div class="sub">JuneArtLab · ${esc(S.settings.name||'작가')} · 한 번 기록하고 제출처마다 골라 출력</div></div></div>
   ${installBanner()}
   ${S.notice?`<div class="banner notice"><div style="min-width:0"><b>📢 ${esc(S.notice.title)}</b>${S.notice.body?`<p style="margin:4px 0 0;white-space:pre-line">${esc(S.notice.body)}</p>`:''}</div><button class="btn small" id="ncl">닫기</button></div>`:''}
   ${store.mode==='local'?`<div class="banner"><span><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장돼요.</span></div>`:''}
@@ -518,7 +518,7 @@ function openPreview(text){const sh=$('#sheet');
   if(text){const ta=sh.querySelector('#ptext');ta.focus();ta.select()}
   sh.querySelector('#print')?.addEventListener('click',async()=>{
     const imgs=[...sh.querySelectorAll('.doc img,.book img')];await Promise.all(imgs.map(i=>i.complete?0:new Promise(r=>{i.onload=i.onerror=r})));
-    const t=document.title;document.title=S.out.title||'JAL';window.print();document.title=t});
+    const t=document.title;document.title=S.out.title||'JALP';window.print();document.title=t});
 }
 
 /* ---------- admin ---------- */
@@ -625,7 +625,7 @@ function viewSet(){const s=S.settings;
   $('#bk').onclick=async e=>{const b=e.target;b.disabled=true;b.textContent='만드는 중…';
     try{const recs=[];for(const r of S.records){const photos=[];for(const p of r.photos)photos.push({slot:p.slot,src:await store.photoData(p)});recs.push({...r,photos})}
       const blob=new Blob([JSON.stringify({app:'artist-record',v:1,settings:s,records:recs})],{type:'application/json'});
-      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`JAL-백업-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast('백업 파일을 받았어요')}
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`JALP-백업-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast('백업 파일을 받았어요')}
     catch(err){toast('백업 파일을 만들지 못했어요')}
     b.disabled=false;b.textContent='백업 파일 받기'};
 }
