@@ -177,6 +177,10 @@ function subline(r){const f=r.f||{};switch(r.type){
 function setTab(t){if(t==='add'){openEditor(null);return}S.tab=t;
   document.querySelectorAll('.tabbar button').forEach(b=>b.setAttribute('aria-current',String(b.dataset.tab===t)));render();window.scrollTo(0,0)}
 function render(){({list:viewList,out:viewOut,set:viewSet})[S.tab]()}
+let syncing=false,lastSync=Date.now();
+async function syncNow(quiet){if(syncing||store.mode!=='cloud'||!S.user)return;if($('#sheet')&&!$('#sheet').hidden)return;syncing=true;
+  try{const st=await store.getSettings();if(st)S.settings=st;S.records=await store.list();await store.photoURLs(S.records);lastSync=Date.now();render();if(!quiet)toast('최신 기록을 불러왔어요')}catch(e){if(!quiet)toast(e.message)}syncing=false}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-lastSync>30000)syncNow(true)});
 
 /* ---------- login (cloud mode) ---------- */
 function viewLogin(mode='in',msg=''){
@@ -265,7 +269,7 @@ function viewList(){
   const counts=TYPE_ORDER.map(t=>[t,R.filter(r=>r.type===t).length]);
   const L=R.filter(r=>(S.ftype==='all'||r.type===S.ftype)&&(S.fgenre==='all'||(r.genres||[]).includes(S.fgenre)));
   $('#app').innerHTML=`
-  <div class="top"><div><h1 class="wm" role="img" aria-label="JALP · JuneArtLab Portfolio"></h1><div class="sub">${esc(S.settings.name||'작가')} · 한 번 기록하고 제출처마다 골라 출력</div></div></div>
+  <div class="top"><div><h1 class="wm" role="img" aria-label="JALP · JuneArtLab Portfolio"></h1><div class="sub">${esc(S.settings.name||'작가')} · 한 번 기록하고 제출처마다 골라 출력</div></div>${store.mode==='cloud'?'<button class="btn small" id="sync" aria-label="다른 기기에서 넣은 기록 불러오기">↻ 새로고침</button>':''}</div>
   ${installBanner()}
   ${S.notice?`<div class="banner notice"><div style="min-width:0"><b>📢 ${esc(S.notice.title)}</b>${S.notice.body?`<p style="margin:4px 0 0;white-space:pre-line">${esc(S.notice.body)}</p>`:''}</div><button class="btn small" id="ncl">닫기</button></div>`:''}
   ${store.mode==='local'?`<div class="banner"><span><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장돼요.</span></div>`:''}
@@ -282,6 +286,7 @@ function viewList(){
   $('#sortbtn').onclick=()=>{S.sort=S.sort==='old'?'new':'old';render()};
   document.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{S.view=b.dataset.vw;render()});
   document.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(S.records.find(r=>r.id===b.dataset.id)));
+  $('#sync')?.addEventListener('click',()=>syncNow(false));
 }
 function yearLine(){const y=String(new Date().getFullYear());const R=S.records.filter(r=>dateOf(r).startsWith(y));if(!S.records.length)return'';
   const n=t=>R.filter(r=>r.type===t).length;const parts=[['exhibition','전시','회'],['award','수상','건'],['work','새 작품','점'],['class','강의','건']].filter(([t])=>n(t)).map(([t,l,u])=>`${l} ${n(t)}${u}`);
