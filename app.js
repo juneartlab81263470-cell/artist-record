@@ -496,7 +496,7 @@ function viewOut(){const o=S.out;const sel=selection();const one=PRESETS[o.prese
   ${o.types.includes('work')?workOrderHTML():''}
   <div class="section">
     <p>골라진 기록 <b>${sel.length}</b>건${sel.some(r=>r.type==='work')?` (작품 ${sel.filter(r=>r.type==='work').length}점)`:''}</p>
-    <div class="actions"><button class="btn primary" id="preview">미리보기</button><button class="btn" id="copy">약력 글로 복사</button></div>
+    <div class="actions"><button class="btn primary" id="preview">미리보기</button><button class="btn" id="copy">약력 글로 복사</button>${o.preset==='artproof'?'<button class="btn" id="entry">사이트 입력용 (항목별 복사)</button>':''}</div>${o.preset==='artproof'?'<p class="note">예술인활동증명은 재단 사이트에 활동을 하나씩 입력해요. <b>사이트 입력용</b>을 누르면 전시마다 칸별 복사 버튼과 증빙 사진 받기가 나와요.</p>':''}
   </div>
   <p class="note">미리보기에서 <b>인쇄 / PDF 저장</b>을 누르면 종이로 뽑거나 PDF 파일로 저장할 수 있어요.</p>`;
   document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{applyPreset(b.dataset.p);render()});
@@ -512,6 +512,7 @@ function viewOut(){const o=S.out;const sel=selection();const one=PRESETS[o.prese
   const prof=async()=>{S.settings.name=$('#pname').value.trim();S.settings.tagline=$('#ptag').value.trim();S.settings.bio=$('#pbio').value.trim();try{await store.setSettings(S.settings)}catch(e){toast(e.message)}};
   ['#pname','#ptag','#pbio'].forEach(id=>{const el=$(id);if(el)el.onchange=prof});
   $('#preview').onclick=async()=>{upd();await store.photoURLs(selection());openPreview()};
+  $('#entry')?.addEventListener('click',async()=>{upd();await store.photoURLs(selection());openEntry()});
   $('#copy').onclick=async()=>{upd();const t=plainText()||'조건에 맞는 기록이 없어요.';try{await navigator.clipboard.writeText(t);toast('약력을 복사했어요')}catch(e){openPreview(t)}};
 }
 function openPreview(text){const sh=$('#sheet');
@@ -523,6 +524,40 @@ function openPreview(text){const sh=$('#sheet');
   sh.querySelector('#print')?.addEventListener('click',async()=>{
     const imgs=[...sh.querySelectorAll('.doc img,.book img')];await Promise.all(imgs.map(i=>i.complete?0:new Promise(r=>{i.onload=i.onerror=r})));
     const t=document.title;document.title=S.out.title||'JALP';window.print();document.title=t});
+}
+
+/* ---------- 예술인활동증명 사이트 입력 도우미 ---------- */
+async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(e){const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}ta.remove();return ok}}
+function safeName(t){return String(t||'').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim().slice(0,40)}
+async function downloadPhoto(url,name){try{const res=await fetch(url);const blob=await res.blob();const ext=(blob.type.split('/')[1]||'jpg').replace('jpeg','jpg');
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name+'.'+ext;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);return true}catch(e){console.error("dl",e);window.open(url,"_blank");return false}}
+function entryItems(){const sel=selection();const cats=S.records.filter(r=>r.type==='catalog');
+  const EV=['venue','poster','main'];
+  return sel.filter(r=>r.type==='exhibition').map(r=>{const f=r.f;const lc=cats.filter(c=>c.f.exhibitionId===r.id);
+    const photos=[];lc.forEach(c=>TYPES.catalog.slots.forEach(sl=>c.photos.filter(p=>p.slot===sl.k).forEach(p=>photos.push({p,l:'도록 '+sl.l}))));
+    EV.forEach(k=>{const sl=TYPES.exhibition.slots.find(x=>x.k===k);r.photos.filter(p=>p.slot===k).forEach(p=>photos.push({p,l:sl.l}))});
+    const rows=[['활동명(전시명)',f.title],['구분',f.kind],['시작일',f.start?f.start.replace(/-/g,'.'):''],['종료일',f.end?f.end.replace(/-/g,'.'):''],['기간',fmtRange(f.start,f.end)],['장소',f.venue],['주최',f.host],['주관',f.organizer],
+      ...lc.map(c=>['도록',`${c.f.title||''}${c.f.publisher?', '+c.f.publisher:''}${c.f.date?', '+fmtDate(c.f.date)+' 발행':''}${c.f.pages?', 수록 '+c.f.pages:''}`])].filter(x=>x[1]);
+    return {r,rows,photos}})}
+function openEntry(){const sh=$('#sheet');const items=entryItems();
+  sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">닫기</button><b>사이트 입력용</b><span></span></div></div>
+  <div class="wrap entry">
+    <p class="note">재단 사이트의 칸에 맞춰 <b>복사</b>를 누르고 붙여 넣으세요. 증빙 사진은 표지 → 내지 → 작품 페이지 → 전시장 순서로 번호가 붙어 내려받아져요. 공모전 전시는 빠져 있어요.</p>
+    ${items.length?items.map((it,i)=>`<div class="section ecard"><h2>${i+1}. ${it.r.f.kind?`<span class="kind">${esc(it.r.f.kind)}</span> `:''}${esc(it.r.f.title)}</h2>
+      <table class="etbl">${it.rows.map(([k,v],j)=>`<tr><th>${k}</th><td>${esc(v)}</td><td><button class="btn small" data-cp="${i}:${j}">복사</button></td></tr>`).join('')}</table>
+      <div class="actions"><button class="btn small" data-cpall="${i}">전체 한 번에 복사</button></div>
+      ${it.photos.length?`<div class="flabel" style="margin-top:10px">증빙 사진 ${it.photos.length}장</div><div class="ephotos">${it.photos.map((x,k)=>`<figure><img src="${esc(store.url(x.p))}" alt="${esc(x.l)}"><figcaption>${k+1}. ${esc(x.l)}</figcaption><button class="btn small" data-dl="${i}:${k}">받기</button></figure>`).join('')}</div>
+        <div class="actions"><button class="btn primary" data-dlall="${i}">사진 ${it.photos.length}장 모두 받기</button></div>`:`<p class="note">증빙 사진이 아직 없어요. 도록 표지·작품 페이지와 전시장 사진을 넣어 주세요.</p>`}
+    </div>`).join(''):`<p>조건에 맞는 전시가 없어요. 기간이나 장르를 바꿔 보세요.</p>`}
+  </div>`;
+  sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
+  sh.querySelector('#cancel').onclick=()=>{sh.hidden=true;sh.innerHTML='';document.body.style.overflow=''};
+  const nm=(it,k)=>`${String(k+1).padStart(2,'0')}_${safeName(it.r.f.title)}_${safeName(it.photos[k].l)}`;
+  sh.querySelectorAll('[data-cp]').forEach(b=>b.onclick=async()=>{const [i,j]=b.dataset.cp.split(':').map(Number);if(await copyText(items[i].rows[j][1])){toast('복사했어요: '+items[i].rows[j][0]);b.textContent='복사됨';setTimeout(()=>b.textContent='복사',1500)}else toast('복사가 안 돼요. 글자를 길게 눌러 복사해 주세요')});
+  sh.querySelectorAll('[data-cpall]').forEach(b=>b.onclick=async()=>{const it=items[+b.dataset.cpall];if(await copyText(it.rows.map(([k,v])=>k+': '+v).join('\n')))toast('전시 정보를 모두 복사했어요')});
+  sh.querySelectorAll('[data-dl]').forEach(b=>b.onclick=async()=>{const [i,k]=b.dataset.dl.split(':').map(Number);await downloadPhoto(store.url(items[i].photos[k].p),nm(items[i],k))});
+  sh.querySelectorAll('[data-dlall]').forEach(b=>b.onclick=async()=>{const it=items[+b.dataset.dlall];b.disabled=true;toast('사진을 받는 중이에요. "여러 파일 다운로드"를 물어보면 허용을 눌러 주세요');
+    for(let k=0;k<it.photos.length;k++){await downloadPhoto(store.url(it.photos[k].p),nm(it,k));await new Promise(r=>setTimeout(r,400))}b.disabled=false;toast('사진 '+it.photos.length+'장을 받았어요')});
 }
 
 /* ---------- admin ---------- */
