@@ -208,6 +208,24 @@ function viewLogin(mode='in',msg=''){
       viewLogin(mode,/Invalid login/i.test(m)?'이메일 또는 비밀번호가 맞지 않아요':/not confirmed/i.test(m)?'메일함의 확인 링크를 먼저 눌러 주세요':/already registered/i.test(m)?'이미 가입된 이메일이에요. 로그인해 주세요':m)}};
 }
 function chLinks(){const k=cfg.KAKAO_CHANNEL_URL;return `<div class="actions" style="font-size:.85rem">${k?`<a class="btn small kakao" href="${esc(k)}" target="_blank" rel="noopener">카카오톡 채널 추가</a>`:''}<a class="btn small" href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div>`}
+const HELPQ=[['what','무엇을 표현했나요?','예: 활짝 핀 모란, 어머니의 뒷모습'],['how','어떤 재료와 기법으로 만들었나요?','예: 목판에 여러 번 찍는 소멸기법'],['heart','작업할 때 어떤 마음이었나요?','예: 꽃이 열리는 순간을 기다리는 설렘이 있었다'],['feel','보는 사람이 무엇을 느꼈으면 하나요?','예: 고요함 속의 기쁨']];
+function josa(w,a,b){const c=String(w||'').trim().slice(-1).charCodeAt(0);if(c>=0xAC00&&c<=0xD7A3)return (c-0xAC00)%28?a:b;return /[0-9LMNlmn]$/.test(String(w).trim())?a:b}
+function makeDraft(f,qa={}){const t=f.title||'이 작품';const ko=[];
+  const head=`「${t}」${f.titleHan?`(${f.titleHan})`:''}`;const nun=josa(t,'은','는');
+  const subj=qa.what||f.subject;const how=qa.how||f.medium;
+  const kind=how?`${how} 작품`:'작품';const yr=f.year?`${f.year}년에 제작한 `:'';
+  ko.push(subj?`${head}${nun} ${subj}${josa(subj,'을','를')} 담아 ${yr}${kind}이다.`:`${head}${nun} ${yr}${kind}이다.`);
+  if(f.plate||f.colors||f.method){const p=[];if(f.plate)p.push(`${f.plate}에 새겨`);if(f.colors)p.push(`${f.colors}${josa(f.colors,'으로','로')} 찍었`);else p.push('찍었');
+    ko.push(p.join(' ')+(f.method?`으며, ${f.method}${josa(f.method,'을','를')} 썼다.`:'다.'))}
+  if(f.phrase)ko.push(`화면에는 「${f.phrase.split('\n')[0]}」${f.source?`(${f.source})`:''} 구절을 ${f.script?f.script+josa(f.script,'으로','로')+' ':''}썼다.`);
+  if(f.base)ko.push(`바탕 재료는 ${f.base}이다.`);
+  if(qa.heart)ko.push(`작업하는 동안 ${qa.heart.replace(/[.。]$/,'')}.`);
+  if(f.statement&&!qa.heart)ko.push(f.statement.trim());
+  if(qa.feel){const fe=qa.feel.replace(/[.。]$/,'');ko.push(/[다요]$/.test(fe)?`${fe}.`:`보는 이가 ${fe}${josa(fe,'을','를')} 느끼기를 바란다.`)}
+  const meta=[f.size,f.edition].filter(Boolean).join(', ');if(meta)ko.push(`(${meta})`);
+  const ascii=v=>v&&/^[\x00-\x7F]+$/.test(v);
+  const en=(f.titleEn||ascii(how))?`${f.titleEn?`"${f.titleEn}"`:'This work'}${f.year?` (${f.year})`:''} is ${ascii(how)?`a ${how} work`:'a work'}${ascii(subj)?` depicting ${subj}`:''}.${f.size?` Size: ${f.size}.`:''}${f.edition?` Edition: ${f.edition}.`:''}`:'';
+  return {ko:ko.join(' '),en}}
 function redeemMsg(r){if(String(r).startsWith('OK:'))return `초대 코드가 적용됐어요. 이제 ${PLANS[String(r).slice(3)]?.l||''} 등급이에요`;
   return {NOT_FOUND:'없는 초대 코드예요. 글자를 다시 확인해 주세요',EXPIRED:'사용 기한이 지난 초대 코드예요',USED_UP:'이미 사용된 초대 코드예요'}[r]||'초대 코드를 적용하지 못했어요'}
 async function afterLogin(){
@@ -288,12 +306,17 @@ function card(r){const p=(r.photos||[])[0];const T=TYPES[r.type];const nPh=(r.ph
 /* ---------- editor ---------- */
 function openEditor(rec){
   const isNew=!rec; const r=rec?JSON.parse(JSON.stringify(rec)):{id:uid(),type:S.ftype!=='all'?S.ftype:'work',f:{},genres:S.fgenre!=='all'?[S.fgenre]:[],photos:[],created:new Date().toISOString()};
-  const sh=$('#sheet');let confirmDel=false,busy=false;
+  const sh=$('#sheet');let confirmDel=false,busy=false,draft=null,helpQ=false,qa={},replaceAsk=false;
   function draw(){const T=TYPES[r.type];
     sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">닫기</button><b>${isNew?'새 기록':'기록 수정'}</b><button class="btn primary" id="save" ${busy?'disabled':''}>${busy?'저장 중…':'저장'}</button></div></div>
     <div class="wrap" style="padding-bottom:40px"><form class="form" id="ef" novalidate>
       ${isNew?`<div><span class="flabel">무엇을 기록할까요?</span><div class="typesel">${TYPE_ORDER.map(t=>`<button type="button" data-t="${t}" aria-pressed="${r.type===t}">${TYPES[t].label}</button>`).join('')}</div></div>`:''}
       ${fieldsHTML(T)}
+      ${r.type==='work'?`<div class="draft"><div class="sh2"><b>작품 설명 도우미</b><span class="actions"><button type="button" class="btn small" id="helpq">질문에 답하며 쓰기</button><button type="button" class="btn small" id="mkdraft">입력한 내용으로 초안</button></span></div>
+        <p class="note">직접 쓰셔도 되고, 쓰기 어려우면 질문에 짧게 답해 보세요. 답을 엮어 초안을 만들어 드려요.</p>
+        ${helpQ?`<div class="form">${HELPQ.map(([k,l,ph])=>`<div class="field"><label for="hq_${k}">${l}</label><textarea id="hq_${k}" rows="2" placeholder="${ph}">${esc(qa[k]||'')}</textarea></div>`).join('')}
+          <div class="actions"><button type="button" class="btn small primary" id="qadraft">답으로 초안 만들기</button></div></div>`:''}
+        ${draft?`<div class="draftbox">${esc(draft.ko)}${draft.en?`<hr><span lang="en">${esc(draft.en)}</span>`:''}</div><div class="actions">${replaceAsk?`<span class="note">이미 적힌 작품 설명이 있어요. 초안으로 바꿀까요?</span><button type="button" class="btn small primary" id="usedraft2">바꾸기</button><button type="button" class="btn small" id="nodraft">그대로 두기</button>`:`<button type="button" class="btn small primary" id="usedraft">이 초안을 작품 설명에 넣기</button>`}</div>`:''}</div>`:''}
       <div><span class="flabel">장르 (여러 개 선택 가능)</span><div class="checks">${[...S.settings.genres,...r.genres.filter(g=>!S.settings.genres.includes(g))].map((g,i)=>`<label><input type="checkbox" id="g${i}" value="${esc(g)}" ${r.genres.includes(g)?'checked':''}>${esc(g)}</label>`).join('')}</div>
         <div class="field" style="margin-top:8px"><label for="gother">기타 (목록에 없으면 직접 입력)</label><input id="gother" placeholder="예: 판각캘리그라피, 도자, 섬유미술"></div></div>
       ${T.slots.map(s=>slotHTML(s)).join('')}
@@ -307,6 +330,14 @@ function openEditor(rec){
       if(!inp.multiple)r.photos=r.photos.filter(p=>p.slot!==slot);
       for(const f of inp.files){try{r.photos.push({slot,src:await shrink(f)})}catch(e){toast('이미지를 읽지 못했어요: '+f.name)}}draw()});
     sh.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{collect();r.photos.splice(+b.dataset.rm,1);draw()});
+    const readQ=()=>{for(const [k] of HELPQ){const el=sh.querySelector('#hq_'+k);if(el)qa[k]=el.value.trim()}};
+    const put=()=>{r.f.desc=draft.ko;if(draft.en&&!r.f.descEn)r.f.descEn=draft.en;draft=null;replaceAsk=false;draw();toast('작품 설명 칸에 넣었어요. 고쳐서 저장하세요');sh.querySelector('#f_desc')?.focus()};
+    sh.querySelector('#mkdraft')?.addEventListener('click',()=>{collect();readQ();draft=makeDraft(r.f,qa);replaceAsk=false;draw();sh.querySelector('.draftbox')?.scrollIntoView({block:'center'})});
+    sh.querySelector('#helpq')?.addEventListener('click',()=>{collect();helpQ=!helpQ;if(helpQ&&!qa.what)qa={what:r.f.subject||'',how:r.f.medium||'',heart:'',feel:''};draw();sh.querySelector('#hq_what')?.focus()});
+    sh.querySelector('#qadraft')?.addEventListener('click',()=>{collect();readQ();draft=makeDraft(r.f,qa);replaceAsk=false;draw();sh.querySelector('.draftbox')?.scrollIntoView({block:'center'})});
+    sh.querySelector('#usedraft')?.addEventListener('click',()=>{collect();readQ();if(r.f.desc){replaceAsk=true;draw();return}put()});
+    sh.querySelector('#usedraft2')?.addEventListener('click',()=>{collect();readQ();put()});
+    sh.querySelector('#nodraft')?.addEventListener('click',()=>{collect();readQ();replaceAsk=false;draw()});
     sh.querySelector('#del')?.addEventListener('click',()=>{collect();confirmDel=true;draw()});
     sh.querySelector('#delno')?.addEventListener('click',()=>{confirmDel=false;draw()});
     sh.querySelector('#delyes')?.addEventListener('click',async()=>{try{await store.remove(rec);S.records=S.records.filter(x=>x.id!==r.id);close();toast('기록을 지웠어요')}catch(e){toast(e.message)}});
