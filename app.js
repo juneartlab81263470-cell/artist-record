@@ -221,10 +221,11 @@ function yearLine(){const y=String(new Date().getFullYear());const R=S.records.f
   const n=t=>R.filter(r=>r.type===t).length;const parts=[['exhibition','전시','회'],['award','수상','건'],['work','새 작품','점'],['class','강의','건']].filter(([t])=>n(t)).map(([t,l,u])=>`${l} ${n(t)}${u}`);
   return `<p class="yearline">${y}년 ${parts.length?parts.join(' · '):'아직 기록이 없어요'}</p>`}
 function tableHTML(L){const onlyWork=L.every(r=>r.type==='work');
-  const th=onlyWork?['','사진','작품명','제작연도','크기','기법·재료','에디션','수상']:['','사진','종류','제목','날짜','내용'];
-  return `<div class="tblwrap"><table class="tbl"><thead><tr>${th.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${L.map((r,i)=>{const p=(r.photos||[])[0];const u=p&&store.url(p);const f=r.f;
+  const th=onlyWork?['순번','관리번호','사진','작품명','장르','제작연도','크기','기법·재료','에디션','수상·비고']:['','사진','종류','제목','날짜','내용'];
+  const LL=onlyWork?[...L].sort((a,b)=>(a.f.year||'').localeCompare(b.f.year||'')||(a.f.code||'').localeCompare(b.f.code||'')):L;L=LL;
+  return `<div class="tblwrap">${onlyWork?`<div class="tbltitle">${esc(S.settings.name||'')} 작품 전체 목록</div>`:''}<table class="tbl"><thead><tr>${th.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${L.map((r,i)=>{const p=(r.photos||[])[0];const u=p&&store.url(p);const f=r.f;
     const img=`<td>${u?`<img src="${esc(u)}" alt="" loading="lazy">`:''}</td>`;
-    return onlyWork?`<tr data-id="${r.id}"><td class="n">${i+1}</td>${img}<td><b>${esc(f.title)}</b>${workTitles(f)?`<small>${esc(workTitles(f))}</small>`:''}</td><td class="n">${esc(f.year||'')}</td><td>${esc(f.size||'')}</td><td>${esc(f.medium||'')}</td><td>${esc(f.edition||'')}</td><td>${esc(awardsFor(r).join(', '))}</td></tr>`
+    return onlyWork?`<tr data-id="${r.id}"><td class="n">${i+1}</td><td class="n">${esc(f.code||'')}</td>${img}<td><b>${esc(f.title)}</b>${(f.titleHan?`<small>${esc(f.titleHan)}</small>`:'')+(f.titleEn?`<small>${esc(f.titleEn)}</small>`:'')}</td><td>${esc((r.genres||[]).join(', '))}</td><td class="n">${esc(f.year||'')}</td><td>${esc(f.size||'')}</td><td>${esc(f.medium||'')}</td><td>${esc(f.edition||'')}</td><td>${esc([...awardsFor(r),f.note].filter(Boolean).join(', '))}</td></tr>`
       :`<tr data-id="${r.id}"><td class="n">${i+1}</td>${img}<td><span class="pill type">${TYPES[r.type].label}</span></td><td><b>${esc(f.title)}</b></td><td class="n">${esc(fmtDate(dateOf(r)))}</td><td>${esc(subline(r))}</td></tr>`}).join('')}</tbody></table></div>`}
 function openDetail(r){if(!r)return;const sh=$('#sheet');const T=TYPES[r.type];
   const rows=T.fields.filter(fd=>r.f[fd.k]&&fd.k!=='title').map(fd=>{let v=r.f[fd.k];

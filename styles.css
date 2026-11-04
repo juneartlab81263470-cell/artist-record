@@ -168,7 +168,9 @@ button{cursor:pointer}
 .stats .stat[aria-pressed="true"]{border-color:var(--indigo);box-shadow:inset 0 0 0 1px var(--indigo);background:var(--indigo-soft)}
 .yearline{margin:-4px 0 12px;font-size:.88rem;color:var(--muted)}
 .tblwrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
-.tbl{border-collapse:collapse;width:100%;min-width:640px;font-size:.85rem}
+
+.tbltitle{font-family:var(--display);font-weight:700;font-size:1.05rem;padding:14px 12px 10px}
+.tbl{border-collapse:collapse;width:100%;min-width:760px;font-size:.85rem}
 .tbl th{text-align:left;font-weight:500;color:var(--muted);background:var(--paper);padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
 .tbl td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
 .tbl tr[data-id]{cursor:pointer}
