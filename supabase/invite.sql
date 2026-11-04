@@ -1,4 +1,4 @@
--- 작가 활동기록: VIP 등급, 초대 코드, 공지
+-- 작가 활동기록: VIP 등급, 초대 코드, 공지, 연락처
 -- admin.sql을 실행한 뒤, SQL Editor에 통째로 붙여 넣고 Run 하세요. (한 번만)
 
 -- 1) VIP 등급 추가 (작품 수 제한 없음, 기한 없음)
@@ -72,3 +72,37 @@ create policy "members read notices" on public.notices for select to authenticat
 drop policy if exists "admin write notices" on public.notices;
 create policy "admin write notices" on public.notices for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
+
+-- 5) 연락처 (선택) — 공지·안내 목적
+alter table public.members add column if not exists phone text not null default '';
+alter table public.members add column if not exists contact_ok boolean not null default false;
+alter table public.members add column if not exists contact_at timestamptz;
+
+create or replace function public.set_contact(p text, ok boolean) returns void
+language sql volatile security definer set search_path = public as $$
+  update public.members set phone = left(coalesce(trim(p),''), 40), contact_ok = ok,
+    contact_at = case when ok then now() else null end
+  where user_id = auth.uid();
+$$;
+
+create or replace function public.my_contact() returns table(phone text, contact_ok boolean)
+language sql stable security definer set search_path = public as $$
+  select m.phone, m.contact_ok from public.members m where m.user_id = auth.uid();
+$$;
+
+drop function if exists public.admin_members();
+create function public.admin_members() returns table(
+  user_id uuid, email text, name text, created_at timestamptz, last_seen timestamptz,
+  plan text, plan_until date, memo text, work_count integer, record_count integer,
+  phone text, contact_ok boolean)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'not admin'; end if;
+  return query
+    select m.user_id, m.email, coalesce(s.name,''), m.created_at, m.last_seen, m.plan, m.plan_until, m.memo,
+      (select count(*)::int from public.records r where r.user_id = m.user_id and r.type = 'work'),
+      (select count(*)::int from public.records r where r.user_id = m.user_id),
+      m.phone, m.contact_ok
+    from public.members m left join public.settings s on s.user_id = m.user_id
+    order by m.created_at desc;
+end $$;

@@ -147,6 +147,8 @@ function CloudStore(cfg){
     async listCodes(){const {data,error}=await sb.from('invite_codes').select('*').order('created_at',{ascending:false});fail(error,'초대 코드를 불러오지 못했어요');return data},
     async createCode(row){const {error}=await sb.from('invite_codes').insert(row);fail(error,'초대 코드를 만들지 못했어요')},
     async deleteCode(code){const {error}=await sb.from('invite_codes').delete().eq('code',code);fail(error,'지우지 못했어요')},
+    async setContact(phone,ok){const {error}=await sb.rpc('set_contact',{p:phone,ok});fail(error,'연락처를 저장하지 못했어요')},
+    async myContact(){const {data}=await sb.rpc('my_contact');return Array.isArray(data)?data[0]:data},
     async latestNotice(){const {data}=await sb.from('notices').select('id,title,body,created_at').eq('active',true).order('created_at',{ascending:false}).limit(1);return data?.[0]||null},
     async listNotices(){const {data,error}=await sb.from('notices').select('*').order('created_at',{ascending:false}).limit(20);fail(error,'공지를 불러오지 못했어요');return data},
     async postNotice(row){const {error}=await sb.from('notices').insert(row);fail(error,'공지를 올리지 못했어요')},
@@ -161,7 +163,7 @@ function CloudStore(cfg){
 const cfg=window.APP_CONFIG||{};
 const cloudReady=!!(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY&&window.supabase);
 const store=cloudReady?CloudStore(cfg):LocalStore();
-const S={records:[],settings:{...DEFAULT_SETTINGS,genres:[...DEFAULT_SETTINGS.genres]},tab:'list',view:'list',sort:'old',plan:null,notice:null,ftype:'all',fgenre:'all',user:null,
+const S={records:[],settings:{...DEFAULT_SETTINGS,genres:[...DEFAULT_SETTINGS.genres]},tab:'list',view:'list',sort:'old',plan:null,notice:null,contact:null,ftype:'all',fgenre:'all',user:null,
   out:{preset:'artproof',types:[],years:5,genres:[],photos:true,title:'',layout:'list',desc:'ko',order:[],skip:[]}};
 
 function subline(r){const f=r.f||{};switch(r.type){
@@ -185,22 +187,27 @@ function viewLogin(mode='in',msg=''){
     <h2>${T[0]}</h2><p class="lead">${T[1]}</p>
     ${mode!=='newpw'?`<div class="field"><label for="le">이메일</label><input id="le" type="email" autocomplete="email" required></div>`:''}
     ${mode!=='reset'?`<div class="field"><label for="lp">비밀번호${mode!=='in'?' (8자 이상)':''}</label><input id="lp" type="password" autocomplete="${mode==='in'?'current-password':'new-password'}" required></div>`:''}
+    ${mode==='up'?`<div class="field"><label for="lph">연락처 (선택)</label><input id="lph" type="tel" autocomplete="tel" placeholder="010-0000-0000"></div>
+    <label class="consent"><input type="checkbox" id="lok"> 업데이트 공지·안내를 받을 목적으로 연락처를 쓰는 데 동의해요 (선택)</label>`:''}
     ${mode==='up'?`<div class="field"><label for="lc">초대 코드 (있으면)</label><input id="lc" autocomplete="off" placeholder="예: VIP-7K3Q-M9XA"></div>`:''}
     ${msg?`<p class="err" role="alert">${esc(msg)}</p>`:''}
     <button class="btn primary" id="lgo">${T[2]}</button>
+    ${chLinks()}
     ${mode==='in'?`<button type="button" class="switch" data-m="up">처음이에요. 가입할게요</button><button type="button" class="switch" data-m="reset">비밀번호를 잊었어요</button>`:mode!=='newpw'?`<button type="button" class="switch" data-m="in">로그인 화면으로</button>`:''}
   </form>`;
   document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>viewLogin(b.dataset.m));
   $('#lf').onsubmit=async e=>{e.preventDefault();const em=$('#le')?.value.trim(),pw=$('#lp')?.value||'';const go=$('#lgo');go.disabled=true;
     try{
       if(mode==='in'){await store.signIn(em,pw);await afterLogin()}
-      else if(mode==='up'){if(pw.length<8)throw new Error('비밀번호를 8자 이상으로 정해 주세요');const lc=$('#lc')?.value.trim();if(lc){try{localStorage.setItem('pendingCode',lc)}catch(e){}}const d=await store.signUp(em,pw);
+      else if(mode==='up'){if(pw.length<8)throw new Error('비밀번호를 8자 이상으로 정해 주세요');const lc=$('#lc')?.value.trim();if(lc){try{localStorage.setItem('pendingCode',lc)}catch(e){}}
+        const lph=$('#lph')?.value.trim();if(lph){try{localStorage.setItem('pendingContact',JSON.stringify({p:lph,ok:!!$('#lok')?.checked}))}catch(e){}}const d=await store.signUp(em,pw);
         if(d.session)await afterLogin();else viewLogin('in',`${em}로 확인 메일을 보냈어요. 메일의 링크를 누른 뒤 여기서 로그인하세요.`)}
       else if(mode==='reset'){await store.resetPassword(em);viewLogin('in','재설정 메일을 보냈어요. 메일의 링크를 누르면 새 비밀번호를 정할 수 있어요.')}
       else if(mode==='newpw'){if(pw.length<8)throw new Error('비밀번호를 8자 이상으로 정해 주세요');await store.updatePassword(pw);toast('비밀번호를 바꿨어요');await afterLogin()}
     }catch(err){go.disabled=false;const m=String(err.message||err);
       viewLogin(mode,/Invalid login/i.test(m)?'이메일 또는 비밀번호가 맞지 않아요':/not confirmed/i.test(m)?'메일함의 확인 링크를 먼저 눌러 주세요':/already registered/i.test(m)?'이미 가입된 이메일이에요. 로그인해 주세요':m)}};
 }
+function chLinks(){const k=cfg.KAKAO_CHANNEL_URL;return `<div class="actions" style="font-size:.85rem">${k?`<a class="btn small kakao" href="${esc(k)}" target="_blank" rel="noopener">카카오톡 채널 추가</a>`:''}<a class="btn small" href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div>`}
 function redeemMsg(r){if(String(r).startsWith('OK:'))return `초대 코드가 적용됐어요. 이제 ${PLANS[String(r).slice(3)]?.l||''} 등급이에요`;
   return {NOT_FOUND:'없는 초대 코드예요. 글자를 다시 확인해 주세요',EXPIRED:'사용 기한이 지난 초대 코드예요',USED_UP:'이미 사용된 초대 코드예요'}[r]||'초대 코드를 적용하지 못했어요'}
 async function afterLogin(){
@@ -211,6 +218,9 @@ async function afterLogin(){
   }catch(e){toast(e.message)}
   if(store.touch){try{await store.touch();
     let pend=null;try{pend=localStorage.getItem('pendingCode')}catch(e){}
+    let pc=null;try{pc=JSON.parse(localStorage.getItem('pendingContact')||'null')}catch(e){}
+    if(pc){try{await store.setContact(pc.p,pc.ok);localStorage.removeItem('pendingContact')}catch(e){}}
+    try{S.contact=await store.myContact()}catch(e){}
     if(pend){try{const r=await store.redeem(pend);try{localStorage.removeItem('pendingCode')}catch(e){}toast(redeemMsg(r))}catch(e){}}
     S.plan=await store.myPlan()}catch(e){S.plan=null}
     try{const n=await store.latestNotice();let seen='';try{seen=localStorage.getItem('noticeSeen')||''}catch(e){}if(n&&String(n.id)!==seen)S.notice=n}catch(e){}}
@@ -475,7 +485,7 @@ async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],notices=[],
   const ago=d=>{if(!d)return'';const n=Math.floor((Date.now()-new Date(d))/864e5);return n<=0?'오늘':n===1?'어제':n+'일 전'};
   function limitOf(m){if(m.user_id===S.user?.id&&S.plan?.admin)return '∞';if(m.plan==='vip')return '∞';if(m.plan==='friend'&&m.plan_until&&m.plan_until<new Date().toISOString().slice(0,10))return 10;return PLANS[m.plan]?.n??10}
   function draw(){const box=sh.querySelector('#adm');if(!box)return;
-    const L=list.filter(m=>!q||(m.email||'').includes(q)||(m.name||'').includes(q)||(m.memo||'').includes(q));
+    const L=list.filter(m=>!q||(m.email||'').includes(q)||(m.name||'').includes(q)||(m.memo||'').includes(q)||(m.phone||'').includes(q));
     const cnt=k=>list.filter(m=>m.plan===k).length;const week=list.filter(m=>m.last_seen&&Date.now()-new Date(m.last_seen)<7*864e5).length;
     const soon=list.filter(m=>m.plan==='friend'&&m.plan_until&&(new Date(m.plan_until)-Date.now())<30*864e5).length;
     box.innerHTML=`<div class="stats" style="grid-template-columns:repeat(3,1fr)">
@@ -494,9 +504,10 @@ async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],notices=[],
         <div class="worder">${codes.map(c=>`<div class="wo"><span style="min-width:0"><b class="code">${esc(c.code)}</b> <small>${esc(PLANS[c.plan]?.l||c.plan)}${c.months?' · '+c.months+'개월':''}${c.memo?' · '+esc(c.memo):''}</small><br><small>${c.used>=c.max_uses?`사용됨${c.used_by?' · '+esc(c.used_by):''}${c.used_at?' · '+day(c.used_at):''}`:'아직 안 씀'} · ${day(c.created_at)} 만듦</small></span>
           <span class="mv">${c.used<c.max_uses?`<button class="btn small" data-copy="${esc(c.code)}">복사</button>`:''}<button class="btn small danger" data-del="${esc(c.code)}">지우기</button></span></div>`).join('')}</div></div>
       <div class="stats" style="grid-template-columns:repeat(5,1fr)">${Object.entries(PLANS).map(([k,p])=>`<div class="stat"><b>${cnt(k)}</b><span>${p.l}</span></div>`).join('')}</div>
-      <div class="field" style="margin-bottom:10px"><label for="aq">찾기 (이메일·이름·메모)</label><input id="aq" value="${esc(q)}"></div>
+      <div class="field" style="margin-bottom:10px"><label for="aq">찾기 (이메일·이름·연락처·메모)</label><input id="aq" value="${esc(q)}"></div>
       <div class="list">${L.map(m=>`<div class="section mem" data-u="${m.user_id}">
         <div><b>${esc(m.name||'(이름 없음)')}</b> <span class="note">${esc(m.email||'')}</span></div>
+        ${m.phone?`<p>연락처 <b>${esc(m.phone)}</b> · ${m.contact_ok?'안내 수신 동의':'안내 수신 미동의'}</p>`:''}
         <p>가입 ${day(m.created_at)} · 마지막 접속 ${ago(m.last_seen)} · 작품 ${m.work_count} / ${limitOf(m)}점 · 전체 기록 ${m.record_count}건</p>
         <div class="row2"><div class="field"><label for="ap_${m.user_id}">등급</label><select id="ap_${m.user_id}">${Object.entries(PLANS).map(([k,p])=>`<option value="${k}" ${m.plan===k?'selected':''}>${p.l} (${p.n}${typeof p.n==='number'?'점':''})</option>`).join('')}</select></div>
         <div class="field"><label for="au_${m.user_id}">무료 기간 끝나는 날</label><input type="date" id="au_${m.user_id}" value="${m.plan_until||''}"></div></div>
@@ -534,6 +545,10 @@ function viewSet(){const s=S.settings;
     ${store.mode==='cloud'?`<p><span class="syncdot"></span>${esc(S.user?.email||'')} 로 로그인됨. 휴대폰·컴퓨터 어디서 로그인해도 같은 기록이 보여요.</p>
     ${S.plan?`<p>등급: <b>${S.plan.admin?'관리자':esc(PLANS[S.plan.plan]?.l||'무료')}</b>${S.plan.plan_until&&S.plan.plan==='friend'?` (${fmtDate(S.plan.plan_until)}까지)`:''} · 작품 ${S.records.filter(r=>r.type==='work').length}${S.plan.admin?'점':` / ${S.plan.work_limit}점`}</p>`:''}
     ${S.plan?.admin?`<div class="actions"><button class="btn primary" id="admin">회원 관리 · 초대 코드</button></div>`:''}
+    ${S.plan?`<div class="field"><label for="sph">연락처 (선택)</label><input id="sph" type="tel" value="${esc(S.contact?.phone||'')}" placeholder="010-0000-0000"></div>
+    <label class="consent"><input type="checkbox" id="sok" ${S.contact?.contact_ok?'checked':''}> 업데이트 공지·안내를 받을 목적으로 연락처를 쓰는 데 동의해요 (선택)</label>
+    <div class="actions"><button class="btn small" id="sphgo">연락처 저장</button></div>`:''}
+    ${chLinks()}
     ${S.plan&&!S.plan.admin?`<div class="actions"><input id="code" class="btn" style="flex:1;min-width:0" placeholder="초대 코드 입력" aria-label="초대 코드" autocomplete="off"><button class="btn" id="codego">적용</button></div>`:''}<div class="actions"><button class="btn" id="out">로그아웃</button></div>`
       :`<p><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장되고, 다른 기기에서는 보이지 않아요.${!store.persistent()?' 이 브라우저는 저장이 막혀 있어 창을 닫으면 기록이 사라져요.':''}</p>`}</div>
   <div class="section"><h2>홈 화면에 앱 아이콘 놓기</h2>
@@ -548,6 +563,7 @@ function viewSet(){const s=S.settings;
   document.querySelectorAll('[data-rg]').forEach(b=>b.onclick=async()=>{s.genres.splice(+b.dataset.rg,1);await saveS();render()});
   $('#addg').onclick=async()=>{const v=$('#newg').value.trim();if(!v||s.genres.includes(v))return;s.genres.push(v);await saveS();render()};
   $('#admin')?.addEventListener('click',openAdmin);
+  $('#sphgo')?.addEventListener('click',async()=>{const p=$('#sph').value.trim(),ok=$('#sok').checked;try{await store.setContact(p,ok);S.contact={phone:p,contact_ok:ok};toast('연락처를 저장했어요')}catch(e){toast(e.message)}});
   $('#codego')?.addEventListener('click',async()=>{const c=$('#code').value.trim();if(!c)return;try{const r=await store.redeem(c);toast(redeemMsg(r));S.plan=await store.myPlan();render()}catch(e){toast('초대 코드를 적용하지 못했어요')}});
   $('#out')?.addEventListener('click',async()=>{await store.signOut();S.records=[];S.user=null;viewLogin('in')});
   $('#csv').onclick=()=>{const ws=[...S.records.filter(r=>r.type==='work')].sort(byDate);

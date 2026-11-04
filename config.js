@@ -3,5 +3,7 @@
 // (anon key는 공개용 키라서 여기에 넣어도 됩니다. service_role 키는 절대 넣지 마세요.)
 window.APP_CONFIG = {
   SUPABASE_URL: "https://zdifozchftcanaukhnac.supabase.co",
-  SUPABASE_ANON_KEY: "sb_publishable_9Ai3o1Hh6_nFEylWIeeazg_7pjd5lLl"
+  SUPABASE_ANON_KEY: "sb_publishable_9Ai3o1Hh6_nFEylWIeeazg_7pjd5lLl",
+  // 카카오톡 채널 주소 (예: https://pf.kakao.com/_xxxxx). 비우면 버튼이 안 보여요.
+  KAKAO_CHANNEL_URL: "https://pf.kakao.com/_tjxkrX"
 };
