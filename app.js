@@ -33,7 +33,7 @@ const TYPES = {
   catalog:{label:'도록', fields:[
     {k:'title',l:'도록명',req:1},{k:'exhibitionId',l:'연결할 전시',t:'exsel'},{k:'publisher',l:'발행처'},
     {k:'date',l:'발행일',t:'date',half:1},{k:'pages',l:'내 작품 수록 쪽',ph:'p.24–25',half:1},{k:'note',l:'메모',t:'area'}],
-    slots:[{k:'cover',l:'표지'},{k:'colophon',l:'내지',hint:'판권면, 참여작가 명단 등'},{k:'mypage',l:'내 작품 페이지',multi:1}]},
+    slots:[{k:'cover',l:'표지',need:'필수'},{k:'colophon',l:'내지',need:'선택',hint:'판권면, 참여작가 명단 등'},{k:'mypage',l:'작품 페이지',need:'필수',hint:'내 작품이 실린 쪽',multi:1}]},
   class:{label:'강의', fields:[
     {k:'title',l:'강의명',req:1},{k:'org',l:'기관'},{k:'start',l:'시작일',t:'date',half:1},{k:'end',l:'종료일',t:'date',half:1},
     {k:'sessions',l:'회차·시간',ph:'8회, 회당 2시간'},{k:'note',l:'메모',t:'area'}],
@@ -374,7 +374,7 @@ function openEditor(rec){
       if(fd.half)buf.push(el);else{flush();h+=el}}
     flush();return h}
   function slotHTML(s){const ph=r.photos.map((p,i)=>[p,i]).filter(([p])=>p.slot===s.k);
-    return `<div class="slot"><div class="sh"><b>${s.l}${s.hint?`<small>${s.hint}</small>`:''}</b>
+    return `<div class="slot"><div class="sh"><b>${s.l}${s.need?` <em class="need ${s.need==='필수'?'req':''}">${s.need}</em>`:''}${s.hint?`<small>${s.hint}</small>`:''}</b>
       <span class="btn small filebtn">${ph.length&&!s.multi?'바꾸기':'사진 추가'}<input type="file" accept="image/*" data-slot="${s.k}" ${s.multi?'multiple':''} aria-label="${s.l} 사진 추가"></span></div>
       ${ph.length?`<div class="photos">${ph.map(([p,i])=>`<div class="pghead"><img src="${esc(store.url(p))}" alt="${s.l}"><button type="button" data-rm="${i}" aria-label="사진 빼기">✕</button></div>`).join('')}</div>`:`<div class="note">아직 사진이 없어요.</div>`}</div>`}
   function collect(){const T=TYPES[r.type];for(const fd of T.fields){const el=sh.querySelector('#f_'+fd.k);if(el)r.f[fd.k]=el.value.trim()}
@@ -435,7 +435,8 @@ function docBody(img=p=>store.url(p),listOnly=false){const o=S.out,sel=selection
     const works=orderedWorks(sel);
     if(works.length)h+=`<h2>작품</h2><div class="grid">${works.map(r=>{const p=r.photos.find(p=>p.slot==='main');return`<figure>${p?`<img src="${esc(img(p))}" alt="">`:''}<figcaption>${esc(line(r))}</figcaption></figure>`}).join('')}</div>`;
     const fig=(p,l)=>`<figure><img src="${esc(img(p))}" alt=""><figcaption>${esc(l)}</figcaption></figure>`;
-    const photosOf=(r,pre='')=>TYPES[r.type].slots.flatMap(sl=>r.photos.filter(p=>p.slot===sl.k).map(p=>fig(p,pre+sl.l))).join('');
+    const EVORD={exhibition:['venue','poster','main']};const slotsOf=r=>{const o=EVORD[r.type],sl=TYPES[r.type].slots;return o?o.map(k=>sl.find(x=>x.k===k)).filter(Boolean):sl};
+    const photosOf=(r,pre='')=>slotsOf(r).flatMap(sl=>r.photos.filter(p=>p.slot===sl.k).map(p=>fig(p,pre+sl.l))).join('');
     const cats=by('catalog');const usedCat=new Set();let evh='';
     for(const r of exs){const f=r.f;const lc=cats.filter(c=>c.f.exhibitionId===r.id);lc.forEach(c=>usedCat.add(c.id));
       const ph=lc.map(c=>photosOf(c,'도록 ')).join('')+photosOf(r);
