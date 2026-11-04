@@ -193,7 +193,7 @@ function viewLogin(mode='in',msg=''){
     ${mode!=='reset'?`<div class="field"><label for="lp">비밀번호${mode!=='in'?' (8자 이상)':''}</label><div class="pw"><input id="lp" type="password" autocomplete="${mode==='in'?'current-password':'new-password'}" required><button type="button" id="pweye" class="pweye" aria-label="비밀번호 보기" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>`:''}
     ${mode==='up'?`<div class="field"><label for="lph">연락처 (선택)</label><input id="lph" type="tel" autocomplete="tel" placeholder="010-0000-0000"></div>
     <label class="consent"><input type="checkbox" id="lok"> 업데이트 공지·안내를 받을 목적으로 연락처를 쓰는 데 동의해요 (선택)</label>`:''}
-    ${mode==='up'?`<div class="field"><label for="lc">초대 코드 (있으면)</label><input id="lc" autocomplete="off" placeholder="예: VIP-7K3Q-M9XA"></div>`:''}
+    ${mode==='up'?`<div class="field"><label for="lc">초대 코드 (있으면)</label><input id="lc" autocomplete="off" placeholder="예: VIP-7K3Q-M9XA" value="${esc((()=>{try{return localStorage.getItem('pendingCode')||''}catch(e){return''}})())}"></div>`:''}
     ${msg?`<p class="err" role="alert">${esc(msg)}</p>`:''}
     <button class="btn primary" id="lgo">${T[2]}</button>
     ${chLinks()}
@@ -257,6 +257,7 @@ async function afterLogin(){
     let pc=null;try{pc=JSON.parse(localStorage.getItem('pendingContact')||'null')}catch(e){}
     if(pc){try{await store.setContact(pc.p,pc.ok);localStorage.removeItem('pendingContact')}catch(e){}}
     try{S.contact=await store.myContact()}catch(e){}
+    if(pend){let adm=false;try{adm=!!(await store.myPlan())?.admin}catch(e){}if(adm){try{localStorage.removeItem('pendingCode')}catch(e){}toast('관리자 계정이라 초대 코드를 쓰지 않았어요. 코드는 그대로 남아 있어요');pend=null}}
     if(pend){try{const r=await store.redeem(pend);try{localStorage.removeItem('pendingCode')}catch(e){}toast(redeemMsg(r))}catch(e){}}
     S.plan=await store.myPlan()}catch(e){S.plan=null}
     try{const n=await store.latestNotice();let seen='';try{seen=localStorage.getItem('noticeSeen')||''}catch(e){}if(n&&String(n.id)!==seen)S.notice=n}catch(e){}}
@@ -536,6 +537,7 @@ function openPreview(text){const sh=$('#sheet');
 }
 
 /* ---------- 예술인활동증명 사이트 입력 도우미 ---------- */
+function inviteLink(code){return location.origin+location.pathname+'?invite='+encodeURIComponent(code)}
 async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(e){const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}ta.remove();return ok}}
 function safeName(t){return String(t||'').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim().slice(0,40)}
 async function downloadPhoto(url,name){try{const res=await fetch(url);const blob=await res.blob();const ext=(blob.type.split('/')[1]||'jpg').replace('jpeg','jpg');
@@ -594,7 +596,7 @@ async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],notices=[],
         <div class="field"><label for="cmemo">누구에게 (메모)</label><input id="cmemo" placeholder="예: ○○○ 선생님"></div>
         <div class="actions"><button class="btn primary" id="cnew">코드 만들기</button></div>
         <div class="worder">${codes.map(c=>`<div class="wo"><span style="min-width:0"><b class="code">${esc(c.code)}</b> <small>${esc(PLANS[c.plan]?.l||c.plan)}${c.months?' · '+c.months+'개월':''}${c.memo?' · '+esc(c.memo):''}</small><br><small>${c.used>=c.max_uses?`사용됨${c.used_by?' · '+esc(c.used_by):''}${c.used_at?' · '+day(c.used_at):''}`:'아직 안 씀'} · ${day(c.created_at)} 만듦</small></span>
-          <span class="mv">${c.used<c.max_uses?`<button class="btn small" data-copy="${esc(c.code)}">복사</button>`:''}<button class="btn small danger" data-del="${esc(c.code)}">지우기</button></span></div>`).join('')}</div></div>
+          <span class="mv">${c.used<c.max_uses?`<button class="btn small primary" data-link="${esc(c.code)}">링크 복사</button><button class="btn small" data-copy="${esc(c.code)}">코드 복사</button>`:''}<button class="btn small danger" data-del="${esc(c.code)}">지우기</button></span></div>`).join('')}</div></div>
       <div class="stats" style="grid-template-columns:repeat(5,1fr)">${Object.entries(PLANS).map(([k,p])=>`<div class="stat"><b>${cnt(k)}</b><span>${p.l}</span></div>`).join('')}</div>
       <div class="field" style="margin-bottom:10px"><label for="aq">찾기 (이메일·이름·연락처·메모)</label><input id="aq" value="${esc(q)}"></div>
       <div class="list">${L.map(m=>`<div class="section mem" data-u="${m.user_id}">
@@ -614,7 +616,8 @@ async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],notices=[],
     box.querySelector('#cnew').onclick=async()=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const rnd=n=>Array.from(crypto.getRandomValues(new Uint8Array(n)),x=>A[x%A.length]).join('');
       const plan=box.querySelector('#cplan').value;const code=`${plan==='vip'?'VIP':plan==='friend'?'FRD':plan.toUpperCase().slice(0,3)}-${rnd(4)}-${rnd(4)}`;
       const months=box.querySelector('#cmon').value;try{await store.createCode({code,plan,months:months?+months:null,max_uses:1,memo:box.querySelector('#cmemo').value.trim()});codes=await store.listCodes();draw();
-        try{await navigator.clipboard.writeText(code);toast(`${code} 를 만들고 복사했어요`)}catch(e){toast(`${code} 를 만들었어요`)}}catch(e){toast(e.message)}};
+        if(await copyText(inviteLink(code)))toast(`${code} 초대 링크를 만들고 복사했어요`);else toast(`${code} 를 만들었어요`)}catch(e){toast(e.message)}};
+    box.querySelectorAll('[data-link]').forEach(b=>b.onclick=async()=>{const l=inviteLink(b.dataset.link);if(await copyText(l))toast('초대 링크를 복사했어요. 카톡·문자로 보내 주세요');else toast(l)});
     box.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);toast('복사했어요')}catch(e){toast(b.dataset.copy)}});
     box.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{if(b.dataset.armed!=='1'){b.dataset.armed='1';b.textContent='정말 지우기';return}try{await store.deleteCode(b.dataset.del);codes=codes.filter(c=>c.code!==b.dataset.del);draw()}catch(e){toast(e.message)}});
     box.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{const id=b.dataset.save;const patch={plan:box.querySelector('#ap_'+id).value,plan_until:box.querySelector('#au_'+id).value||null,memo:box.querySelector('#am_'+id).value.trim()};
@@ -691,12 +694,13 @@ function viewSet(){const s=S.settings;
 document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 (async()=>{
+  let invited=null;try{const q=new URLSearchParams(location.search);invited=(q.get('invite')||'').trim().toUpperCase();if(invited){try{localStorage.setItem('pendingCode',invited)}catch(e){}q.delete('invite');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}}catch(e){}
   const recovering=/type=recovery/.test(location.hash);
   if(store.mode==='cloud')store.sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY')viewLogin('newpw')});
   try{await store.init()}catch(e){console.error(e)}
   if(store.mode==='cloud'){
     if(recovering){history.replaceState(null,'',location.pathname);if(await store.user()){viewLogin('newpw');return}viewLogin('reset','재설정 링크가 만료됐어요. 이메일을 넣고 링크를 다시 받아 주세요.');return}
-    if(!(await store.user())){viewLogin('in');return}
+    if(!(await store.user())){if(invited){viewLogin('up',`초대 코드 ${invited} 가 들어 있어요. 이메일과 비밀번호만 정하면 가입이 끝나요.`)}else viewLogin('in');return}
   }
   await afterLogin();
 })();
