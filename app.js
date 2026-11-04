@@ -46,7 +46,7 @@ const PRESETS = {
   portfolio:{label:'장르별 포트폴리오',desc:'표지, 약력, 한 쪽에 한 작품',title:'포트폴리오',types:['work','exhibition','award'],years:0,photos:true,oneGenre:true,layout:'book'},
   custom:{label:'직접 고르기',desc:'항목·기간·장르를 직접 선택',title:'활동 기록',types:['work','exhibition','award','catalog','class'],years:0,photos:true}
 };
-const DEFAULT_SETTINGS={name:'',genres:['한국화','서양화','판화','서예·캘리그라피','조각·공예','사진']};
+const DEFAULT_SETTINGS={name:'',genres:['회화','판화','서예','한국화','서양화','공예']};
 
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
