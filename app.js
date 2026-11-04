@@ -22,7 +22,7 @@ const TYPES = {
     {k:'note',l:'메모',t:'area'}],
     slots:[{k:'main',l:'작품 사진',multi:1}]},
   exhibition:{label:'전시', fields:[
-    {k:'title',l:'전시명',req:1},{k:'kind',l:'구분',t:'select',opts:['개인전','단체전','초대전','아트페어','공모전']},
+    {k:'title',l:'전시명',req:1},{k:'kind',l:'구분',t:'select',req:1,opts:['개인전','단체전','초대전','아트페어','공모전']},
     {k:'venue',l:'장소'},{k:'start',l:'시작일',t:'date',half:1},{k:'end',l:'종료일',t:'date',half:1},
     {k:'host',l:'주최',half:1},{k:'organizer',l:'주관',half:1},{k:'note',l:'메모',t:'area'}],
     slots:[{k:'poster',l:'포스터·리플렛',multi:1},{k:'venue',l:'전시장 사진',hint:'전경, 작품이 걸린 모습',multi:1},{k:'main',l:'기타 증빙',hint:'초대장, 기사 등',multi:1}]},
@@ -41,7 +41,7 @@ const TYPES = {
 };
 const TYPE_ORDER=['work','exhibition','award','catalog','class'];
 const PRESETS = {
-  artproof:{label:'예술활동증명용',desc:'최근 5년 전시·도록·수상과 증빙 사진',title:'예술활동증명 제출 자료',types:['exhibition','catalog','award'],years:5,photos:true},
+  artproof:{label:'예술활동증명용',desc:'최근 5년 전시·도록·수상과 증빙 사진 (공모전 전시는 빠져요)',noContest:1,title:'예술활동증명 제출 자료',types:['exhibition','catalog','award'],years:5,photos:true},
   assoc:{label:'미술협회 제출용',desc:'개인전·단체전·수상 약력 목록',title:'작가 약력',types:['exhibition','award','class'],years:0,photos:false},
   portfolio:{label:'장르별 포트폴리오',desc:'표지, 약력, 한 쪽에 한 작품',title:'포트폴리오',types:['work','exhibition','award'],years:0,photos:true,oneGenre:true,layout:'book'},
   custom:{label:'직접 고르기',desc:'항목·기간·장르를 직접 선택',title:'활동 기록',types:['work','exhibition','award','catalog','class'],years:0,photos:true}
@@ -366,7 +366,7 @@ function openEditor(rec){
   function fieldsList(list){let h='',buf=[];const flush=()=>{if(buf.length){h+=`<div class="row2">${buf.join('')}</div>`;buf=[]}};
     for(const fd of list){const v=r.f[fd.k]??'';const id='f_'+fd.k;let inp;
       if(fd.t==='area')inp=`<textarea id="${id}" placeholder="${esc(fd.ph||'')}">${esc(v)}</textarea>`;
-      else if(fd.t==='select')inp=`<select id="${id}">${fd.opts.map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('')}</select>`;
+      else if(fd.t==='select')inp=`<select id="${id}">${fd.req?`<option value="" ${v?'':'selected'}>골라 주세요</option>`:''}${fd.opts.map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('')}</select>`;
       else if(fd.t==='exsel'){const exs=sorted(S.records.filter(x=>x.type==='exhibition'));inp=`<select id="${id}"><option value="">연결 안 함</option>${exs.map(x=>`<option value="${x.id}" ${v===x.id?'selected':''}>${esc(x.f.title)} (${esc((x.f.start||'').slice(0,4))})</option>`).join('')}</select>`}
       else if(fd.t==='worksel'){const ws=[...S.records.filter(x=>x.type==='work')].sort((a,b)=>(a.f.title||'').localeCompare(b.f.title||''));inp=`<select id="${id}"><option value="">연결 안 함</option>${ws.map(x=>`<option value="${x.id}" ${v===x.id?'selected':''}>${esc(x.f.title)}${x.f.year?' ('+esc(x.f.year)+')':''}</option>`).join('')}</select>`}
       else inp=`<input id="${id}" type="${fd.t||'text'}" value="${esc(v)}" placeholder="${esc(fd.ph||'')}" ${fd.t==='number'?'inputmode="numeric"':''}>`;
@@ -381,6 +381,7 @@ function openEditor(rec){
     const cb=[...sh.querySelectorAll('.checks input')];if(cb.length)r.genres=cb.filter(c=>c.checked).map(c=>c.value);
     const go=sh.querySelector('#gother');if(go&&go.value.trim()){for(const g of go.value.split(/[,·]/).map(x=>x.trim()).filter(Boolean))if(!r.genres.includes(g))r.genres.push(g);go.value=''}}
   async function save(){if(busy)return;collect();if(!r.f.title){toast(TYPES[r.type].fields[0].l+'을(를) 적어 주세요');sh.querySelector('#f_title')?.focus();return}
+    const miss=TYPES[r.type].fields.find(fd=>fd.req&&fd.k!=='title'&&!r.f[fd.k]);if(miss){toast(miss.l+'을(를) 골라 주세요');sh.querySelector('#f_'+miss.k)?.focus();return}
     const keep=new Set(TYPES[r.type].slots.map(s=>s.k));r.photos=r.photos.filter(p=>keep.has(p.slot));
     // 화면에 쓰지 않는 칸 정리
     const fk=new Set(TYPES[r.type].fields.map(f=>f.k));for(const k of Object.keys(r.f))if(!fk.has(k))delete r.f[k];
@@ -404,7 +405,8 @@ function applyPreset(k){const p=PRESETS[k];S.out.preset=k;S.out.types=[...p.type
   S.out.genres=p.oneGenre?[S.settings.genres[0]]:[...S.settings.genres];S.out.title=p.oneGenre?`${S.settings.genres[0]} 포트폴리오`:p.title}
 function selection(){const o=S.out;const cut=o.years?`${new Date().getFullYear()-o.years+1}-01-01`:'';
   const one=PRESETS[o.preset].oneGenre;
-  return sorted(S.records.filter(r=>o.types.includes(r.type)&&((r.genres||[]).some(g=>o.genres.includes(g))||(!one&&!(r.genres||[]).length))&&(!cut||dateOf(r)>=cut)&&!(r.type==='work'&&o.skip.includes(r.id))))}
+  const contest=new Set(PRESETS[o.preset].noContest?S.records.filter(r=>r.type==='exhibition'&&r.f.kind==='공모전').map(r=>r.id):[]);
+  return sorted(S.records.filter(r=>!contest.has(r.id)&&!(r.type==='catalog'&&contest.has(r.f.exhibitionId))&&o.types.includes(r.type)&&((r.genres||[]).some(g=>o.genres.includes(g))||(!one&&!(r.genres||[]).length))&&(!cut||dateOf(r)>=cut)&&!(r.type==='work'&&o.skip.includes(r.id))))}
 function orderedWorks(sel){const o=S.out;const ws=sel.filter(r=>r.type==='work');const idx=id=>{const i=o.order.indexOf(id);return i<0?1e9:i};
   return ws.sort((a,b)=>idx(a.id)-idx(b.id)||byDate(a,b))}
 function candidateWorks(){const o=S.out;const keep=o.skip;o.skip=[];const all=orderedWorks(selection());o.skip=keep;return all}
@@ -441,8 +443,8 @@ function docBody(img=p=>store.url(p),listOnly=false){const o=S.out,sel=selection
     for(const r of exs){const f=r.f;const lc=cats.filter(c=>c.f.exhibitionId===r.id);lc.forEach(c=>usedCat.add(c.id));
       const ph=lc.map(c=>photosOf(c,'도록 ')).join('')+photosOf(r);
       if(!ph&&!lc.length)continue;
-      evh+=`<div class="ev"><h3>전시 · 「${esc(f.title)}」${f.kind?' '+esc(f.kind):''}</h3>
-        <table class="evinfo">${[['기간',fmtRange(f.start,f.end)],['장소',f.venue],['주최',f.host],['주관',f.organizer],...lc.map(c=>['도록',`『${c.f.title}』${c.f.publisher?', '+c.f.publisher:''}${c.f.date?', '+fmtDate(c.f.date)+' 발행':''}${c.f.pages?', 수록 '+c.f.pages:''}`])].filter(x=>x[1]).map(([k,v])=>`<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</table>
+      evh+=`<div class="ev"><h3>${f.kind?`[${esc(f.kind)}] `:'전시 · '}「${esc(f.title)}」</h3>
+        <table class="evinfo">${[['구분',f.kind],['기간',fmtRange(f.start,f.end)],['장소',f.venue],['주최',f.host],['주관',f.organizer],...lc.map(c=>['도록',`『${c.f.title}』${c.f.publisher?', '+c.f.publisher:''}${c.f.date?', '+fmtDate(c.f.date)+' 발행':''}${c.f.pages?', 수록 '+c.f.pages:''}`])].filter(x=>x[1]).map(([k,v])=>`<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</table>
         ${ph?`<div class="grid">${ph}</div>`:''}</div>`}
     for(const r of [...cats.filter(c=>!usedCat.has(c.id)),...by('award'),...by('class')].filter(r=>r.photos.length))
       evh+=`<div class="ev"><h3>${esc(TYPES[r.type].label)} · ${esc(line(r))}${dateOf(r)?' · '+fmtDate(dateOf(r)):''}</h3><div class="grid">${photosOf(r)}</div></div>`;
