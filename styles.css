@@ -4,11 +4,13 @@
   --indigo:#2c4a7a; --indigo-soft:#e3e9f3; --seal:#a8322b; --ok:#2f6b46;
   --display:"Gowun Batang","Nanum Myeongjo",serif;
   --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
-  --r:10px;
+  --r:10px; --wm:url("icons/wordmark.png");
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --paper:#15181c; --surface:#1e2228; --ink:#e8eaec; --muted:#9aa1aa; --line:#323840;
-  --indigo:#8fb0e6; --indigo-soft:#24324a; --seal:#e07a72; --ok:#7cc497; color-scheme:dark}}
+  --indigo:#8fb0e6; --indigo-soft:#24324a; --seal:#e07a72; --ok:#7cc497; color-scheme:dark; --wm:url("icons/wordmark-dark.png")}}
+
+:root[data-theme="dark"]{--wm:url("icons/wordmark-dark.png")}
 :root[data-theme="dark"]{
   --paper:#15181c; --surface:#1e2228; --ink:#e8eaec; --muted:#9aa1aa; --line:#323840;
   --indigo:#8fb0e6; --indigo-soft:#24324a; --seal:#e07a72; --ok:#7cc497; color-scheme:dark}
@@ -229,3 +231,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
   .book .page:last-child{break-after:auto;page-break-after:auto}
   @page{size:A4;margin:16mm}
 }
+
+.wm{width:170px;aspect-ratio:760/340;background:var(--wm) left center/contain no-repeat;margin:0 0 2px -4px}
+.wm-lg{width:220px;margin:0 auto 4px}
+.login .sub{text-align:center;color:var(--muted);margin-top:-8px}
