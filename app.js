@@ -226,6 +226,18 @@ function makeDraft(f,qa={}){const t=f.title||'이 작품';const ko=[];
   const ascii=v=>v&&/^[\x00-\x7F]+$/.test(v);
   const en=(f.titleEn||ascii(how))?`${f.titleEn?`"${f.titleEn}"`:'This work'}${f.year?` (${f.year})`:''} is ${ascii(how)?`a ${how} work`:'a work'}${ascii(subj)?` depicting ${subj}`:''}.${f.size?` Size: ${f.size}.`:''}${f.edition?` Edition: ${f.edition}.`:''}`:'';
   return {ko:ko.join(' '),en}}
+let installEvt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(S.tab==='list'||S.tab==='set')render()});
+window.addEventListener('appinstalled',()=>{installEvt=null;toast('홈 화면에 설치했어요');render()});
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function installHow(){if(installEvt)return `<button class="btn small primary" data-install>앱으로 설치하기</button>`;
+  if(isIOS())return `<span>사파리 아래쪽 <b>공유 버튼</b>(네모에 위 화살표 <span aria-hidden="true">⬆︎</span>) → <b>홈 화면에 추가</b>를 누르세요. 다른 앱 안에서 열었다면 먼저 사파리로 여세요.</span>`;
+  if(/android/i.test(navigator.userAgent))return `<span>크롬 오른쪽 위 <b>⋮</b> → <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 누르세요.</span>`;
+  return `<span>크롬·엣지 주소창 오른쪽의 <b>설치 아이콘</b>(모니터에 화살표)이나 메뉴 <b>⋮ → 앱 설치</b>를 누르면 바탕화면에 아이콘이 생겨요.</span>`}
+function installBanner(){if(isStandalone())return'';let hide=false;try{hide=localStorage.getItem('installHide')==='1'}catch(e){}if(hide)return'';
+  return `<div class="banner install"><div style="min-width:0"><b>홈 화면에 앱 아이콘을 놓아 보세요</b><div class="note" style="margin-top:4px">${installHow()}</div></div><button class="btn small" id="insthide">닫기</button></div>`}
+function bindInstall(){document.querySelectorAll('[data-install]').forEach(b=>b.onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;render()});
+  $('#insthide')?.addEventListener('click',()=>{try{localStorage.setItem('installHide','1')}catch(e){}render()})}
 function redeemMsg(r){if(String(r).startsWith('OK:'))return `초대 코드가 적용됐어요. 이제 ${PLANS[String(r).slice(3)]?.l||''} 등급이에요`;
   return {NOT_FOUND:'없는 초대 코드예요. 글자를 다시 확인해 주세요',EXPIRED:'사용 기한이 지난 초대 코드예요',USED_UP:'이미 사용된 초대 코드예요'}[r]||'초대 코드를 적용하지 못했어요'}
 async function afterLogin(){
@@ -252,6 +264,7 @@ function viewList(){
   const L=R.filter(r=>(S.ftype==='all'||r.type===S.ftype)&&(S.fgenre==='all'||(r.genres||[]).includes(S.fgenre)));
   $('#app').innerHTML=`
   <div class="top"><div><h1><span class="seal">記</span>활동 기록</h1><div class="sub">${esc(S.settings.name||'작가')} · 한 번 기록하고 제출처마다 골라 출력</div></div></div>
+  ${installBanner()}
   ${S.notice?`<div class="banner notice"><div style="min-width:0"><b>📢 ${esc(S.notice.title)}</b>${S.notice.body?`<p style="margin:4px 0 0;white-space:pre-line">${esc(S.notice.body)}</p>`:''}</div><button class="btn small" id="ncl">닫기</button></div>`:''}
   ${store.mode==='local'?`<div class="banner"><span><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장돼요.</span></div>`:''}
   <div class="stats">${counts.map(([t,n])=>`<button class="stat" data-ft="${t}" aria-pressed="${S.ftype===t}"><b>${n}</b><span>${TYPES[t].label}</span></button>`).join('')}</div>
@@ -262,6 +275,7 @@ function viewList(){
   <div class="${S.view==='grid'?'pgrid':S.view==='table'?'':'list'}">${L.length?(S.view==='table'?tableHTML(sortedView(L)):sortedView(L).map(S.view==='grid'?pcard:card).join('')):R.length?`<div class="empty">이 조건에 맞는 기록이 없어요.</div>`:`<div class="empty">아직 기록이 없어요.<br>아래 <b>+ 추가</b>로 첫 기록을 남겨 보세요.<br><br>작품, 전시, 수상, 도록, 강의를 기록해 두면<br>출력 탭에서 제출처별 문서로 골라 뽑을 수 있어요.</div>`}</div>`;
   document.querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>{S.ftype=(b.classList.contains('stat')&&S.ftype===b.dataset.ft)?'all':b.dataset.ft;render()});
   document.querySelectorAll('[data-fg]').forEach(b=>b.onclick=()=>{S.fgenre=b.dataset.fg;render()});
+  bindInstall();
   $('#ncl')?.addEventListener('click',()=>{try{localStorage.setItem('noticeSeen',String(S.notice.id))}catch(e){}S.notice=null;render()});
   $('#sortbtn').onclick=()=>{S.sort=S.sort==='old'?'new':'old';render()};
   document.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{S.view=b.dataset.vw;render()});
@@ -583,8 +597,10 @@ function viewSet(){const s=S.settings;
     ${S.plan&&!S.plan.admin?`<div class="actions"><input id="code" class="btn" style="flex:1;min-width:0" placeholder="초대 코드 입력" aria-label="초대 코드" autocomplete="off"><button class="btn" id="codego">적용</button></div>`:''}<div class="actions"><button class="btn" id="out">로그아웃</button></div>`
       :`<p><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장되고, 다른 기기에서는 보이지 않아요.${!store.persistent()?' 이 브라우저는 저장이 막혀 있어 창을 닫으면 기록이 사라져요.':''}</p>`}</div>
   <div class="section"><h2>홈 화면에 앱 아이콘 놓기</h2>
+    ${isStandalone()?'<p>이미 앱으로 설치해서 쓰고 있어요.</p>':`<div class="actions">${installHow()}</div>`}
     <p><b>아이폰:</b> 사파리에서 열고 아래쪽 공유 버튼 → "홈 화면에 추가"</p>
-    <p><b>안드로이드:</b> 크롬에서 열고 오른쪽 위 ⋮ → "홈 화면에 추가" 또는 "앱 설치"</p></div>
+    <p><b>안드로이드:</b> 크롬에서 열고 오른쪽 위 ⋮ → "앱 설치" 또는 "홈 화면에 추가"</p>
+    <p><b>컴퓨터:</b> 크롬·엣지 주소창 오른쪽 설치 아이콘 또는 ⋮ → "앱 설치"</p></div>
   <div class="section"><h2>백업</h2><p>지금까지의 기록을 사진까지 한 파일로 내려받아요.</p>
     <div class="actions"><button class="btn" id="bk">백업 파일 받기</button><button class="btn" id="csv">작품 목록 엑셀로 받기</button></div></div>`;
   const saveS=async()=>{try{await store.setSettings(s)}catch(e){toast(e.message)}};
@@ -593,6 +609,7 @@ function viewSet(){const s=S.settings;
   $('#scur').onchange=async e=>{s.current=e.target.value.trim();await saveS();toast('저장했어요')};
   document.querySelectorAll('[data-rg]').forEach(b=>b.onclick=async()=>{s.genres.splice(+b.dataset.rg,1);await saveS();render()});
   $('#addg').onclick=async()=>{const v=$('#newg').value.trim();if(!v||s.genres.includes(v))return;s.genres.push(v);await saveS();render()};
+  bindInstall();
   $('#admin')?.addEventListener('click',openAdmin);
   $('#sphgo')?.addEventListener('click',async()=>{const p=$('#sph').value.trim(),ok=$('#sok').checked;try{await store.setContact(p,ok);S.contact={phone:p,contact_ok:ok};toast('연락처를 저장했어요')}catch(e){toast(e.message)}});
   $('#codego')?.addEventListener('click',async()=>{const c=$('#code').value.trim();if(!c)return;try{const r=await store.redeem(c);toast(redeemMsg(r));S.plan=await store.myPlan();render()}catch(e){toast('초대 코드를 적용하지 못했어요')}});
