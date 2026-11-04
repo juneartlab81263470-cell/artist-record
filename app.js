@@ -243,7 +243,7 @@ function openEditor(rec){
     sh.querySelector('#delyes')?.addEventListener('click',async()=>{try{await store.remove(rec);S.records=S.records.filter(x=>x.id!==r.id);close();toast('기록을 지웠어요')}catch(e){toast(e.message)}});
   }
   function fieldsHTML(T){const main=T.fields.filter(f=>!f.grp);let h=fieldsList(main);
-    const G={calli:'문구 · 출처 · 서체 기록 (캘리그라피·판각)',print:'판화 기법 기록'};
+    const G={calli:'문구 · 출처 · 서체 기록 (서예·캘리그라피)',print:'판화 기법 기록'};
     for(const g of Object.keys(G)){const fs=T.fields.filter(f=>f.grp===g);if(!fs.length)continue;const open=fs.some(f=>r.f[f.k]);
       h+=`<details class="grp" ${open?'open':''}><summary>${G[g]} <small>(선택)</small></summary><div class="form">${fieldsList(fs)}</div></details>`}
     return h}
