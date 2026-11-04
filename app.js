@@ -458,10 +458,10 @@ function docBody(img=p=>store.url(p),listOnly=false){const o=S.out,sel=selection
 function bookPages(img=p=>store.url(p)){const o=S.out,st=S.settings,sel=selection();
   const pages=[];const awards=sorted(sel.filter(r=>r.type==='award')).slice(0,8);
   pages.push(`<section class="page cover"><div class="cv-top">PORTFOLIO</div>
-    <div class="cv-mid"><h1>${esc(o.title||st.ptitle||'포트폴리오')}</h1><div class="cv-name">${esc(st.name||'')}</div>
+    <div class="cv-mid">${st.photo?`<img class="cv-photo" src="${esc(st.photo)}" alt="">`:''}<h1>${esc(o.title||st.ptitle||'포트폴리오')}</h1><div class="cv-name">${esc(st.name||'')}</div>
     ${st.tagline?`<p class="cv-tag">${esc(st.tagline)}</p>`:''}${st.bio?`<p class="cv-bio">${esc(st.bio)}</p>`:''}
     ${awards.length?`<ul class="cv-aw">${awards.map(a=>`<li>${esc([(a.f.date||'').slice(0,4),a.f.title,a.f.prize].filter(Boolean).join(' '))}</li>`).join('')}</ul>`:''}</div>
-    <div class="cv-bot">${esc(o.genres.join(' · '))}</div></section>`);
+    <div class="cv-bot"><span>${esc(o.genres.join(' · '))}</span>${[st.pemail,st.insta,st.web].filter(Boolean).length?`<span>${esc([st.pemail,st.insta,st.web].filter(Boolean).join('  ·  '))}</span>`:''}</div></section>`);
   if(sel.some(r=>r.type==='exhibition'||r.type==='catalog'||r.type==='class')){pages.push(`<section class="page cvpage doc"><h2 class="pghead">약력</h2>${docBody(img,true)}</section>`)}
   for(const r of orderedWorks(sel)){const ps=r.photos.filter(p=>p.slot==='main');const f=r.f;const aw=awardsFor(r);
     const d=o.desc==='none'?'':[o.desc!=='en'&&f.desc,o.desc!=='ko'&&f.descEn].filter(Boolean).map(t=>`<p>${esc(t)}</p>`).join('');
@@ -622,9 +622,17 @@ async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],notices=[],
 /* ---------- settings ---------- */
 function viewSet(){const s=S.settings;
   $('#app').innerHTML=`<div class="top"><div><h1>설정</h1></div></div>
-  <div class="section"><div class="field"><label for="sname">작가 이름 (출력 문서에 들어가요)</label><input id="sname" value="${esc(s.name)}" placeholder="예: 홍길동 I 洪吉童 I Hong Gil-dong"></div>
-    <div class="field"><label for="sedu">학력 (한 줄에 하나, 미술협회 약력에 들어가요)</label><textarea id="sedu" placeholder="○○대학교 미술대학 서양화과 졸업">${esc(s.edu||'')}</textarea></div>
-    <div class="field"><label for="scur">현재 활동 (한 줄에 하나)</label><textarea id="scur" placeholder="한국미술협회 회원&#10;○○판화가협회 회원&#10;○○평생학습관 강사">${esc(s.current||'')}</textarea></div></div>
+  <div class="section"><h2>작가 프로필</h2><p>여기 적은 내용이 포트폴리오 표지와 협회 제출용 약력에 들어가요.</p>
+    <div class="profrow"><div class="pphoto">${s.photo?`<img src="${esc(s.photo)}" alt="프로필 사진">`:'<span>사진 없음</span>'}</div>
+      <div class="actions"><span class="btn small filebtn">${s.photo?'사진 바꾸기':'프로필 사진 넣기'}<input type="file" accept="image/*" id="sphoto" aria-label="프로필 사진"></span>${s.photo?'<button class="btn small" id="sphotorm">빼기</button>':''}</div></div>
+    <div class="field"><label for="sname">작가 이름</label><input id="sname" value="${esc(s.name)}" placeholder="예: 홍길동 I 洪吉童 I Hong Gil-dong"></div>
+    <div class="field"><label for="ptag">한 줄 소개</label><input id="ptag" value="${esc(s.tagline||'')}" placeholder="작가와 작업을 한 문장으로"></div>
+    <div class="field"><label for="pbio">작가 소개</label><textarea id="pbio" placeholder="작업 세계, 주로 다루는 재료와 주제 등">${esc(s.bio||'')}</textarea></div>
+    <div class="field"><label for="sedu">학력 (한 줄에 하나)</label><textarea id="sedu" placeholder="○○대학교 미술대학 서양화과 졸업">${esc(s.edu||'')}</textarea></div>
+    <div class="field"><label for="scur">현재 활동 (한 줄에 하나)</label><textarea id="scur" placeholder="한국미술협회 회원&#10;○○판화가협회 회원&#10;○○평생학습관 강사">${esc(s.current||'')}</textarea></div>
+    <div class="row2"><div class="field"><label for="pmail">이메일 (공개용)</label><input id="pmail" type="email" value="${esc(s.pemail||'')}" placeholder="표지에 넣을 이메일"></div>
+    <div class="field"><label for="pinsta">인스타그램</label><input id="pinsta" value="${esc(s.insta||'')}" placeholder="@아이디"></div></div>
+    <div class="field"><label for="pweb">웹사이트·블로그</label><input id="pweb" value="${esc(s.web||'')}" placeholder="https://"></div></div>
   <div class="section"><h2>내 장르</h2><p>기록마다 장르를 붙여 두면, 출력할 때 장르별로 따로 뽑을 수 있어요.</p>
     <div class="genrelist">${s.genres.map((g,i)=>`<div class="g"><span>${esc(g)}</span><button class="btn small" data-rg="${i}" ${s.genres.length<2?'disabled':''}>빼기</button></div>`).join('')}</div>
     <div class="actions"><input id="newg" class="btn" style="flex:1;min-width:0" placeholder="새 장르 (예: 회화)" aria-label="새 장르"><button class="btn" id="addg">추가</button></div></div>
@@ -649,6 +657,9 @@ function viewSet(){const s=S.settings;
   $('#sname').onchange=async e=>{s.name=e.target.value.trim();await saveS();toast('저장했어요')};
   $('#sedu').onchange=async e=>{s.edu=e.target.value.trim();await saveS();toast('저장했어요')};
   $('#scur').onchange=async e=>{s.current=e.target.value.trim();await saveS();toast('저장했어요')};
+  [['#ptag','tagline'],['#pbio','bio'],['#pmail','pemail'],['#pinsta','insta'],['#pweb','web']].forEach(([id,k])=>{$(id).onchange=async e=>{s[k]=e.target.value.trim();await saveS();toast('저장했어요')}});
+  $('#sphoto').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{s.photo=await shrink(f,600);await saveS();toast('프로필 사진을 넣었어요');render()}catch(_){toast('이미지를 읽지 못했어요')}};
+  $('#sphotorm')?.addEventListener('click',async()=>{delete s.photo;await saveS();render()});
   document.querySelectorAll('[data-rg]').forEach(b=>b.onclick=async()=>{s.genres.splice(+b.dataset.rg,1);await saveS();render()});
   $('#addg').onclick=async()=>{const v=$('#newg').value.trim();if(!v||s.genres.includes(v))return;s.genres.push(v);await saveS();render()};
   bindInstall();
