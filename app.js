@@ -193,9 +193,10 @@ function viewLogin(mode='in',msg=''){
     ${msg?`<p class="err" role="alert">${esc(msg)}</p>`:''}
     <button class="btn primary" id="lgo">${T[2]}</button>
     ${chLinks()}
-    ${mode==='in'?`<button type="button" class="switch" data-m="up">처음이에요. 가입할게요</button><button type="button" class="switch" data-m="reset">비밀번호를 잊었어요</button>`:mode!=='newpw'?`<button type="button" class="switch" data-m="in">로그인 화면으로</button>`:''}
+    ${mode==='in'?`<button type="button" class="switch" data-m="up">처음이에요. 가입할게요</button><button type="button" class="switch" data-m="reset">비밀번호를 잊었어요</button>`:mode!=='newpw'?`<button type="button" class="switch" data-m="in">로그인 화면으로</button>`:S.records.length||S.user?`<button type="button" class="switch" id="pwback">취소하고 돌아가기</button>`:''}
   </form>`;
   document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>viewLogin(b.dataset.m));
+  $('#pwback')?.addEventListener('click',()=>{$('.tabbar').hidden=false;setTab('set')});
   $('#lf').onsubmit=async e=>{e.preventDefault();const em=$('#le')?.value.trim(),pw=$('#lp')?.value||'';const go=$('#lgo');go.disabled=true;
     try{
       if(mode==='in'){await store.signIn(em,pw);await afterLogin()}
@@ -594,7 +595,7 @@ function viewSet(){const s=S.settings;
     <label class="consent"><input type="checkbox" id="sok" ${S.contact?.contact_ok?'checked':''}> 업데이트 공지·안내를 받을 목적으로 연락처를 쓰는 데 동의해요 (선택)</label>
     <div class="actions"><button class="btn small" id="sphgo">연락처 저장</button></div>`:''}
     ${chLinks()}
-    ${S.plan&&!S.plan.admin?`<div class="actions"><input id="code" class="btn" style="flex:1;min-width:0" placeholder="초대 코드 입력" aria-label="초대 코드" autocomplete="off"><button class="btn" id="codego">적용</button></div>`:''}<div class="actions"><button class="btn" id="out">로그아웃</button></div>`
+    ${S.plan&&!S.plan.admin?`<div class="actions"><input id="code" class="btn" style="flex:1;min-width:0" placeholder="초대 코드 입력" aria-label="초대 코드" autocomplete="off"><button class="btn" id="codego">적용</button></div>`:''}<div class="actions"><button class="btn" id="chpw">비밀번호 바꾸기</button><button class="btn" id="out">로그아웃</button></div>`
       :`<p><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장되고, 다른 기기에서는 보이지 않아요.${!store.persistent()?' 이 브라우저는 저장이 막혀 있어 창을 닫으면 기록이 사라져요.':''}</p>`}</div>
   <div class="section"><h2>홈 화면에 앱 아이콘 놓기</h2>
     ${isStandalone()?'<p>이미 앱으로 설치해서 쓰고 있어요.</p>':`<div class="actions">${installHow()}</div>`}
@@ -613,6 +614,7 @@ function viewSet(){const s=S.settings;
   $('#admin')?.addEventListener('click',openAdmin);
   $('#sphgo')?.addEventListener('click',async()=>{const p=$('#sph').value.trim(),ok=$('#sok').checked;try{await store.setContact(p,ok);S.contact={phone:p,contact_ok:ok};toast('연락처를 저장했어요')}catch(e){toast(e.message)}});
   $('#codego')?.addEventListener('click',async()=>{const c=$('#code').value.trim();if(!c)return;try{const r=await store.redeem(c);toast(redeemMsg(r));S.plan=await store.myPlan();render()}catch(e){toast('초대 코드를 적용하지 못했어요')}});
+  $('#chpw')?.addEventListener('click',()=>viewLogin('newpw'));
   $('#out')?.addEventListener('click',async()=>{await store.signOut();S.records=[];S.user=null;viewLogin('in')});
   $('#csv').onclick=()=>{const ws=[...S.records.filter(r=>r.type==='work')].sort(byDate);
     const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
@@ -632,10 +634,11 @@ function viewSet(){const s=S.settings;
 document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 (async()=>{
+  const recovering=/type=recovery/.test(location.hash);
+  if(store.mode==='cloud')store.sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY')viewLogin('newpw')});
   try{await store.init()}catch(e){console.error(e)}
   if(store.mode==='cloud'){
-    store.sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY')viewLogin('newpw')});
-    if(/type=recovery/.test(location.hash))return; // 재설정 링크로 들어온 경우 위 이벤트가 화면을 엽니다
+    if(recovering){history.replaceState(null,'',location.pathname);if(await store.user()){viewLogin('newpw');return}viewLogin('reset','재설정 링크가 만료됐어요. 이메일을 넣고 링크를 다시 받아 주세요.');return}
     if(!(await store.user())){viewLogin('in');return}
   }
   await afterLogin();
