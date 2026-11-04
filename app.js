@@ -9,7 +9,7 @@
 const TYPES = {
   work:{label:'작품', fields:[
     {k:'title',l:'국문 제목',req:1},{k:'titleHan',l:'한문 제목',ph:'歡喜',half:1},{k:'titleEn',l:'영문 제목',ph:'Exultation',half:1},
-    {k:'code',l:'관리번호',ph:'2001',half:1},{k:'year',l:'제작연도',t:'number',ph:'2025',half:1},
+    {k:'year',l:'제작연도',t:'number',ph:'2025',half:1},{k:'made',l:'제작일',ph:'2025.05',half:1},{k:'code',l:'관리번호',ph:'비우면 자동 (예: 2501)'},
     {k:'size',l:'크기',ph:'60×90cm',half:1},{k:'edition',l:'에디션',ph:'ED.1, 3/20, A.P.',half:1},
     {k:'medium',l:'기법·재료',ph:'Woodcut (Reduction Method) · 소멸기법'},{k:'base',l:'바탕 재료',ph:'한지, 은행나무 판 등'},
     {k:'subject',l:'작품에 보이는 소재',ph:'모란'},
@@ -53,11 +53,15 @@ const DEFAULT_SETTINGS={name:'',genres:['회화','판화','서예','한국화','
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid=()=>(crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&3|8)).toString(16)}));
-function dateOf(r){const f=r.f||{};return f.start||f.date||(f.year?f.year+'-01-01':'')||''}
+function dateOf(r){const f=r.f||{};if(r.type==='work'){const m=String(f.made||'').match(/(\d{4})\D*(\d{1,2})?\D*(\d{1,2})?/);
+  if(m)return `${m[1]}-${String(m[2]||1).padStart(2,'0')}-${String(m[3]||1).padStart(2,'0')}`;return f.year?f.year+'-01-01':''}
+  return f.start||f.date||''}
 function fmtDate(d){if(!d)return'';const [y,m,dd]=d.split('-');return dd&&m?`${y}. ${+m}. ${+dd}.`:m?`${y}. ${+m}.`:y}
 function fmtRange(a,b){if(!a)return'';if(!b||a===b)return fmtDate(a);const [y1]=a.split('-'),[y2,m2,d2]=b.split('-');return fmtDate(a)+' – '+(y1===y2?`${+m2}. ${+d2}.`:fmtDate(b))}
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2400)}
-const sorted=a=>[...a].sort((x,y)=>dateOf(y).localeCompare(dateOf(x)));
+const byDate=(x,y)=>dateOf(x).localeCompare(dateOf(y))||String(x.f?.code||'').localeCompare(String(y.f?.code||''),undefined,{numeric:true});
+const sorted=a=>[...a].sort((x,y)=>byDate(y,x));
+const sortedView=a=>[...a].sort((x,y)=>S.sort==='old'?byDate(x,y):byDate(y,x));
 function dataURLtoBlob(u){const [h,b]=u.split(',');const bin=atob(b);const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:h.match(/:(.*?);/)[1]})}
 function blobToDataURL(b){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(b)})}
 function shrink(file,max=1600){return new Promise((res,rej)=>{const fr=new FileReader();fr.onerror=rej;fr.onload=()=>{const im=new Image();im.onerror=rej;im.onload=()=>{
@@ -149,7 +153,7 @@ function CloudStore(cfg){
 const cfg=window.APP_CONFIG||{};
 const cloudReady=!!(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY&&window.supabase);
 const store=cloudReady?CloudStore(cfg):LocalStore();
-const S={records:[],settings:{...DEFAULT_SETTINGS,genres:[...DEFAULT_SETTINGS.genres]},tab:'list',view:'list',plan:null,ftype:'all',fgenre:'all',user:null,
+const S={records:[],settings:{...DEFAULT_SETTINGS,genres:[...DEFAULT_SETTINGS.genres]},tab:'list',view:'list',sort:'old',plan:null,ftype:'all',fgenre:'all',user:null,
   out:{preset:'artproof',types:[],years:5,genres:[],photos:true,title:'',layout:'list',desc:'ko',order:[],skip:[]}};
 
 function subline(r){const f=r.f||{};switch(r.type){
@@ -210,10 +214,11 @@ function viewList(){
   ${yearLine()}
   <div class="chips" role="group" aria-label="종류">${['all',...TYPE_ORDER].map(t=>`<button class="chip" data-ft="${t}" aria-pressed="${S.ftype===t}">${t==='all'?'전체':TYPES[t].label}</button>`).join('')}</div>
   <div class="chips" role="group" aria-label="장르">${['all',...S.settings.genres].map(g=>`<button class="chip" data-fg="${esc(g)}" aria-pressed="${S.fgenre===g}">${g==='all'?'모든 장르':esc(g)}</button>`).join('')}</div>
-  <div class="viewtog">${[['list','목록'],['grid','사진 보기'],['table','표 보기']].map(([k,l])=>`<button class="chip" data-vw="${k}" aria-pressed="${S.view===k}">${l}</button>`).join('')}<span class="note" style="margin-left:auto;align-self:center">${L.length}건</span></div>
-  <div class="${S.view==='grid'?'pgrid':S.view==='table'?'':'list'}">${L.length?(S.view==='table'?tableHTML(sorted(L)):sorted(L).map(S.view==='grid'?pcard:card).join('')):R.length?`<div class="empty">이 조건에 맞는 기록이 없어요.</div>`:`<div class="empty">아직 기록이 없어요.<br>아래 <b>+ 추가</b>로 첫 기록을 남겨 보세요.<br><br>작품, 전시, 수상, 도록, 강의를 기록해 두면<br>출력 탭에서 제출처별 문서로 골라 뽑을 수 있어요.</div>`}</div>`;
+  <div class="viewtog">${[['list','목록'],['grid','사진 보기'],['table','표 보기']].map(([k,l])=>`<button class="chip" data-vw="${k}" aria-pressed="${S.view===k}">${l}</button>`).join('')}<button class="chip" id="sortbtn" style="margin-left:auto">${S.sort==='old'?'오래된 순 ↑':'최신 순 ↓'}</button><span class="note" style="align-self:center">${L.length}건</span></div>
+  <div class="${S.view==='grid'?'pgrid':S.view==='table'?'':'list'}">${L.length?(S.view==='table'?tableHTML(sortedView(L)):sortedView(L).map(S.view==='grid'?pcard:card).join('')):R.length?`<div class="empty">이 조건에 맞는 기록이 없어요.</div>`:`<div class="empty">아직 기록이 없어요.<br>아래 <b>+ 추가</b>로 첫 기록을 남겨 보세요.<br><br>작품, 전시, 수상, 도록, 강의를 기록해 두면<br>출력 탭에서 제출처별 문서로 골라 뽑을 수 있어요.</div>`}</div>`;
   document.querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>{S.ftype=(b.classList.contains('stat')&&S.ftype===b.dataset.ft)?'all':b.dataset.ft;render()});
   document.querySelectorAll('[data-fg]').forEach(b=>b.onclick=()=>{S.fgenre=b.dataset.fg;render()});
+  $('#sortbtn').onclick=()=>{S.sort=S.sort==='old'?'new':'old';render()};
   document.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{S.view=b.dataset.vw;render()});
   document.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(S.records.find(r=>r.id===b.dataset.id)));
 }
@@ -221,12 +226,11 @@ function yearLine(){const y=String(new Date().getFullYear());const R=S.records.f
   const n=t=>R.filter(r=>r.type===t).length;const parts=[['exhibition','전시','회'],['award','수상','건'],['work','새 작품','점'],['class','강의','건']].filter(([t])=>n(t)).map(([t,l,u])=>`${l} ${n(t)}${u}`);
   return `<p class="yearline">${y}년 ${parts.length?parts.join(' · '):'아직 기록이 없어요'}</p>`}
 function tableHTML(L){const onlyWork=L.every(r=>r.type==='work');
-  const th=onlyWork?['순번','관리번호','사진','작품명','장르','제작연도','크기','기법·재료','에디션','수상·비고']:['','사진','종류','제목','날짜','내용'];
-  const LL=onlyWork?[...L].sort((a,b)=>(a.f.year||'').localeCompare(b.f.year||'')||(a.f.code||'').localeCompare(b.f.code||'')):L;L=LL;
+  const th=onlyWork?['순번','관리번호','사진','작품명','장르','제작일','크기','기법·재료','에디션','수상·비고','']:['순번','사진','종류','제목','날짜','내용',''];
   return `<div class="tblwrap">${onlyWork?`<div class="tbltitle">${esc(S.settings.name||'')} 작품 전체 목록</div>`:''}<table class="tbl"><thead><tr>${th.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${L.map((r,i)=>{const p=(r.photos||[])[0];const u=p&&store.url(p);const f=r.f;
     const img=`<td>${u?`<img src="${esc(u)}" alt="" loading="lazy">`:''}</td>`;
-    return onlyWork?`<tr data-id="${r.id}"><td class="n">${i+1}</td><td class="n">${esc(f.code||'')}</td>${img}<td><b>${esc(f.title)}</b>${(f.titleHan?`<small>${esc(f.titleHan)}</small>`:'')+(f.titleEn?`<small>${esc(f.titleEn)}</small>`:'')}</td><td>${esc((r.genres||[]).join(', '))}</td><td class="n">${esc(f.year||'')}</td><td>${esc(f.size||'')}</td><td>${esc(f.medium||'')}</td><td>${esc(f.edition||'')}</td><td>${esc([...awardsFor(r),f.note].filter(Boolean).join(', '))}</td></tr>`
-      :`<tr data-id="${r.id}"><td class="n">${i+1}</td>${img}<td><span class="pill type">${TYPES[r.type].label}</span></td><td><b>${esc(f.title)}</b></td><td class="n">${esc(fmtDate(dateOf(r)))}</td><td>${esc(subline(r))}</td></tr>`}).join('')}</tbody></table></div>`}
+    return onlyWork?`<tr data-id="${r.id}"><td class="n">${i+1}</td><td class="n">${esc(f.code||'')}</td>${img}<td><b>${esc(f.title)}</b>${(f.titleHan?`<small>${esc(f.titleHan)}</small>`:'')+(f.titleEn?`<small>${esc(f.titleEn)}</small>`:'')}</td><td>${esc((r.genres||[]).join(', '))}</td><td class="n">${esc(f.made||f.year||'')}</td><td>${esc(f.size||'')}</td><td>${esc(f.medium||'')}</td><td>${esc(f.edition||'')}</td><td>${esc([...awardsFor(r),f.note].filter(Boolean).join(', '))}</td><td><span class="btn small">상세보기</span></td></tr>`
+      :`<tr data-id="${r.id}"><td class="n">${i+1}</td>${img}<td><span class="pill type">${TYPES[r.type].label}</span></td><td><b>${esc(f.title)}</b></td><td class="n">${esc(fmtDate(dateOf(r)))}</td><td>${esc(subline(r))}</td><td><span class="btn small">상세보기</span></td></tr>`}).join('')}</tbody></table></div>`}
 function openDetail(r){if(!r)return;const sh=$('#sheet');const T=TYPES[r.type];
   const rows=T.fields.filter(fd=>r.f[fd.k]&&fd.k!=='title').map(fd=>{let v=r.f[fd.k];
     if(fd.t==='exsel'||fd.t==='worksel'){const x=S.records.find(y=>y.id===v);return x?`<div class="dr"><dt>${fd.l}</dt><dd><button class="linkbtn" data-go="${x.id}">${esc(x.f.title)}</button></dd></div>`:''}
@@ -306,6 +310,9 @@ function openEditor(rec){
     const fk=new Set(TYPES[r.type].fields.map(f=>f.k));for(const k of Object.keys(r.f))if(!fk.has(k))delete r.f[k];
     if(r.type==='work'&&(!rec||rec.type!=='work')&&S.plan){const n=S.records.filter(x=>x.type==='work').length;
       if(n>=S.plan.work_limit){toast(`지금 등급(${PLANS[S.plan.plan]?.l||'무료'})에서는 작품을 ${S.plan.work_limit}점까지 올릴 수 있어요`);return}}
+    if(r.type==='work'){const y=r.f.year||(String(r.f.made||'').match(/\d{4}/)||[])[0];if(!r.f.year&&y)r.f.year=y;
+      if(!r.f.code&&y){const pre=y.slice(2);const used=S.records.filter(x=>x.type==='work'&&x.id!==r.id).map(x=>String(x.f.code||'')).filter(c=>c.startsWith(pre)&&c.length===4).map(c=>+c.slice(2));
+        let n=1;while(used.includes(n))n++;r.f.code=pre+String(n).padStart(2,'0')}}
     busy=true;draw();
     try{const saved=await store.save(r,rec);if(S.plan&&r.type==='work'&&!rec)S.plan.work_count++;saved.updated=new Date().toISOString();
       const i=S.records.findIndex(x=>x.id===r.id);if(i>=0)S.records[i]=saved;else S.records.push(saved);close();toast('저장했어요')}
@@ -321,7 +328,7 @@ function selection(){const o=S.out;const cut=o.years?`${new Date().getFullYear()
   const one=PRESETS[o.preset].oneGenre;
   return sorted(S.records.filter(r=>o.types.includes(r.type)&&((r.genres||[]).some(g=>o.genres.includes(g))||(!one&&!(r.genres||[]).length))&&(!cut||dateOf(r)>=cut)&&!(r.type==='work'&&o.skip.includes(r.id))))}
 function orderedWorks(sel){const o=S.out;const ws=sel.filter(r=>r.type==='work');const idx=id=>{const i=o.order.indexOf(id);return i<0?1e9:i};
-  return ws.sort((a,b)=>idx(a.id)-idx(b.id)||(a.f.year||'').localeCompare(b.f.year||'')||(a.f.code||'').localeCompare(b.f.code||''))}
+  return ws.sort((a,b)=>idx(a.id)-idx(b.id)||byDate(a,b))}
 function candidateWorks(){const o=S.out;const keep=o.skip;o.skip=[];const all=orderedWorks(selection());o.skip=keep;return all}
 function workTitles(f){return [f.titleHan,f.titleEn].filter(Boolean).join(' / ')}
 function workMeta(f){return [f.year,f.medium,f.size,f.edition].filter(Boolean).join(' · ')}
@@ -409,7 +416,7 @@ function viewOut(){const o=S.out;const sel=selection();const one=PRESETS[o.prese
   document.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>mv(+b.dataset.up,+b.dataset.up-1));
   document.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>mv(+b.dataset.dn,+b.dataset.dn+1));
   document.querySelectorAll('[data-wk]').forEach(c=>c.onchange=()=>{o.skip=c.checked?o.skip.filter(x=>x!==c.dataset.wk):[...o.skip,c.dataset.wk];render()});
-  $('#oyear')?.addEventListener('click',()=>{o.order=[...ws].sort((a,b)=>(a.f.year||'').localeCompare(b.f.year||'')||(a.f.code||'').localeCompare(b.f.code||'')).map(w=>w.id);render()});
+  $('#oyear')?.addEventListener('click',()=>{o.order=[...ws].sort(byDate).map(w=>w.id);render()});
   const prof=async()=>{S.settings.name=$('#pname').value.trim();S.settings.tagline=$('#ptag').value.trim();S.settings.bio=$('#pbio').value.trim();try{await store.setSettings(S.settings)}catch(e){toast(e.message)}};
   ['#pname','#ptag','#pbio'].forEach(id=>{const el=$(id);if(el)el.onchange=prof});
   $('#preview').onclick=async()=>{upd();await store.photoURLs(selection());openPreview()};
@@ -483,10 +490,10 @@ function viewSet(){const s=S.settings;
   $('#addg').onclick=async()=>{const v=$('#newg').value.trim();if(!v||s.genres.includes(v))return;s.genres.push(v);await saveS();render()};
   $('#admin')?.addEventListener('click',openAdmin);
   $('#out')?.addEventListener('click',async()=>{await store.signOut();S.records=[];S.user=null;viewLogin('in')});
-  $('#csv').onclick=()=>{const ws=[...S.records.filter(r=>r.type==='work')].sort((a,b)=>(a.f.year||'').localeCompare(b.f.year||'')||(a.f.code||'').localeCompare(b.f.code||''));
+  $('#csv').onclick=()=>{const ws=[...S.records.filter(r=>r.type==='work')].sort(byDate);
     const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-    const rows=[['순번','관리번호','국문 제목','한문 제목','영문 제목','장르','제작연도','크기','기법·재료','바탕 재료','에디션','소재','수상','작품 설명']];
-    ws.forEach((r,i)=>{const f=r.f;rows.push([i+1,f.code,f.title,f.titleHan,f.titleEn,(r.genres||[]).join(', '),f.year,f.size,f.medium,f.base,f.edition,f.subject,awardsFor(r).join(' / '),f.desc])});
+    const rows=[['순번','관리번호','국문 제목','한문 제목','영문 제목','장르','제작연도','제작일','크기','기법·재료','바탕 재료','에디션','소재','수상','작품 설명']];
+    ws.forEach((r,i)=>{const f=r.f;rows.push([i+1,f.code,f.title,f.titleHan,f.titleEn,(r.genres||[]).join(', '),f.year,f.made,f.size,f.medium,f.base,f.edition,f.subject,awardsFor(r).join(' / '),f.desc])});
     const blob=new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\r\n')],{type:'text/csv'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`작품목록-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast('작품 목록을 받았어요')};
   $('#bk').onclick=async e=>{const b=e.target;b.disabled=true;b.textContent='만드는 중…';
