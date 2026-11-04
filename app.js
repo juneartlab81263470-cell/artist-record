@@ -147,6 +147,10 @@ function CloudStore(cfg){
     async listCodes(){const {data,error}=await sb.from('invite_codes').select('*').order('created_at',{ascending:false});fail(error,'초대 코드를 불러오지 못했어요');return data},
     async createCode(row){const {error}=await sb.from('invite_codes').insert(row);fail(error,'초대 코드를 만들지 못했어요')},
     async deleteCode(code){const {error}=await sb.from('invite_codes').delete().eq('code',code);fail(error,'지우지 못했어요')},
+    async latestNotice(){const {data}=await sb.from('notices').select('id,title,body,created_at').eq('active',true).order('created_at',{ascending:false}).limit(1);return data?.[0]||null},
+    async listNotices(){const {data,error}=await sb.from('notices').select('*').order('created_at',{ascending:false}).limit(20);fail(error,'공지를 불러오지 못했어요');return data},
+    async postNotice(row){const {error}=await sb.from('notices').insert(row);fail(error,'공지를 올리지 못했어요')},
+    async setNotice(id,active){const {error}=await sb.from('notices').update({active}).eq('id',id);fail(error,'공지를 바꾸지 못했어요')},
     async updateMember(id,patch){const {error}=await sb.from('members').update(patch).eq('user_id',id);fail(error,'회원 정보를 저장하지 못했어요')},
     url:p=>p.src||urls.get(p.path)?.url||'',
     async photoData(p){if(p.src)return p.src;const {data}=await sb.storage.from(BUCKET).download(p.path);return data?blobToDataURL(data):''}
@@ -157,7 +161,7 @@ function CloudStore(cfg){
 const cfg=window.APP_CONFIG||{};
 const cloudReady=!!(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY&&window.supabase);
 const store=cloudReady?CloudStore(cfg):LocalStore();
-const S={records:[],settings:{...DEFAULT_SETTINGS,genres:[...DEFAULT_SETTINGS.genres]},tab:'list',view:'list',sort:'old',plan:null,ftype:'all',fgenre:'all',user:null,
+const S={records:[],settings:{...DEFAULT_SETTINGS,genres:[...DEFAULT_SETTINGS.genres]},tab:'list',view:'list',sort:'old',plan:null,notice:null,ftype:'all',fgenre:'all',user:null,
   out:{preset:'artproof',types:[],years:5,genres:[],photos:true,title:'',layout:'list',desc:'ko',order:[],skip:[]}};
 
 function subline(r){const f=r.f||{};switch(r.type){
@@ -208,7 +212,8 @@ async function afterLogin(){
   if(store.touch){try{await store.touch();
     let pend=null;try{pend=localStorage.getItem('pendingCode')}catch(e){}
     if(pend){try{const r=await store.redeem(pend);try{localStorage.removeItem('pendingCode')}catch(e){}toast(redeemMsg(r))}catch(e){}}
-    S.plan=await store.myPlan()}catch(e){S.plan=null}}
+    S.plan=await store.myPlan()}catch(e){S.plan=null}
+    try{const n=await store.latestNotice();let seen='';try{seen=localStorage.getItem('noticeSeen')||''}catch(e){}if(n&&String(n.id)!==seen)S.notice=n}catch(e){}}
   applyPreset('artproof');$('.tabbar').hidden=false;setTab('list');
 }
 
@@ -219,6 +224,7 @@ function viewList(){
   const L=R.filter(r=>(S.ftype==='all'||r.type===S.ftype)&&(S.fgenre==='all'||(r.genres||[]).includes(S.fgenre)));
   $('#app').innerHTML=`
   <div class="top"><div><h1><span class="seal">記</span>활동 기록</h1><div class="sub">${esc(S.settings.name||'작가')} · 한 번 기록하고 제출처마다 골라 출력</div></div></div>
+  ${S.notice?`<div class="banner notice"><div style="min-width:0"><b>📢 ${esc(S.notice.title)}</b>${S.notice.body?`<p style="margin:4px 0 0;white-space:pre-line">${esc(S.notice.body)}</p>`:''}</div><button class="btn small" id="ncl">닫기</button></div>`:''}
   ${store.mode==='local'?`<div class="banner"><span><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장돼요.</span></div>`:''}
   <div class="stats">${counts.map(([t,n])=>`<button class="stat" data-ft="${t}" aria-pressed="${S.ftype===t}"><b>${n}</b><span>${TYPES[t].label}</span></button>`).join('')}</div>
   ${yearLine()}
@@ -228,6 +234,7 @@ function viewList(){
   <div class="${S.view==='grid'?'pgrid':S.view==='table'?'':'list'}">${L.length?(S.view==='table'?tableHTML(sortedView(L)):sortedView(L).map(S.view==='grid'?pcard:card).join('')):R.length?`<div class="empty">이 조건에 맞는 기록이 없어요.</div>`:`<div class="empty">아직 기록이 없어요.<br>아래 <b>+ 추가</b>로 첫 기록을 남겨 보세요.<br><br>작품, 전시, 수상, 도록, 강의를 기록해 두면<br>출력 탭에서 제출처별 문서로 골라 뽑을 수 있어요.</div>`}</div>`;
   document.querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>{S.ftype=(b.classList.contains('stat')&&S.ftype===b.dataset.ft)?'all':b.dataset.ft;render()});
   document.querySelectorAll('[data-fg]').forEach(b=>b.onclick=()=>{S.fgenre=b.dataset.fg;render()});
+  $('#ncl')?.addEventListener('click',()=>{try{localStorage.setItem('noticeSeen',String(S.notice.id))}catch(e){}S.notice=null;render()});
   $('#sortbtn').onclick=()=>{S.sort=S.sort==='old'?'new':'old';render()};
   document.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{S.view=b.dataset.vw;render()});
   document.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(S.records.find(r=>r.id===b.dataset.id)));
@@ -459,7 +466,7 @@ function openPreview(text){const sh=$('#sheet');
 }
 
 /* ---------- admin ---------- */
-async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],q='';
+async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],notices=[],q='';
   sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">닫기</button><b>회원 관리</b><button class="btn" id="reload">새로고침</button></div></div><div class="wrap" id="adm"><div class="loading">불러오는 중…</div></div>`;
   sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
   sh.querySelector('#cancel').onclick=()=>{sh.hidden=true;sh.innerHTML='';document.body.style.overflow='';render()};
@@ -473,6 +480,11 @@ async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],q='';
     const soon=list.filter(m=>m.plan==='friend'&&m.plan_until&&(new Date(m.plan_until)-Date.now())<30*864e5).length;
     box.innerHTML=`<div class="stats" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat"><b>${list.length}</b><span>전체 회원</span></div><div class="stat"><b>${week}</b><span>7일 내 접속</span></div><div class="stat"><b>${soon}</b><span>무료 30일 내 만료</span></div></div>
+      <div class="section"><h2>공지</h2><p>올리면 회원이 앱을 열 때 맨 위에 보여요. 회원이 닫으면 다시 안 떠요.</p>
+        <div class="field"><label for="ntitle">제목</label><input id="ntitle" placeholder="예: 예술활동증명 출력이 새로 바뀌었어요"></div>
+        <div class="field"><label for="nbody">내용</label><textarea id="nbody" placeholder="바뀐 점을 짧게 적어 주세요"></textarea></div>
+        <div class="actions"><button class="btn primary" id="npost">공지 올리기</button></div>
+        <div class="worder">${notices.map(n=>`<div class="wo"><span style="min-width:0"><b>${esc(n.title)}</b><br><small>${day(n.created_at)} · ${n.active?'보이는 중':'내림'}</small></span><span class="mv"><button class="btn small" data-nt="${n.id}" data-on="${n.active?0:1}">${n.active?'내리기':'다시 올리기'}</button></span></div>`).join('')}</div></div>
       <div class="section"><div class="sh2"><h2>초대 코드</h2></div>
         <p>코드는 한 번만 쓸 수 있어요. 가입할 때 입력하거나, 가입한 뒤 설정 탭에서 입력하면 등급이 바로 바뀌어요.</p>
         <div class="row2"><div class="field"><label for="cplan">줄 등급</label><select id="cplan">${['vip','friend','pro','basic'].map(k=>`<option value="${k}">${PLANS[k].l}</option>`).join('')}</select></div>
@@ -493,6 +505,9 @@ async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],q='';
     box.querySelector('#aq').oninput=e=>{q=e.target.value.trim();const pos=e.target.selectionStart;draw();const el=box.querySelector('#aq');el.focus();el.setSelectionRange(pos,pos)};
     box.querySelectorAll('[data-six]').forEach(b=>b.onclick=()=>{const d=new Date();d.setMonth(d.getMonth()+6);box.querySelector('#au_'+b.dataset.six).value=d.toISOString().slice(0,10)});
     box.querySelectorAll('[id^=ap_]').forEach(sel=>sel.onchange=()=>{const m=list.find(x=>x.user_id===sel.id.slice(3));m.plan=sel.value;m.memo=box.querySelector('#am_'+m.user_id).value;m.plan_until=box.querySelector('#au_'+m.user_id).value||null;draw()});
+    box.querySelector('#npost').onclick=async()=>{const t=box.querySelector('#ntitle').value.trim();if(!t){toast('제목을 적어 주세요');return}
+      try{await store.postNotice({title:t,body:box.querySelector('#nbody').value.trim()});notices=await store.listNotices();draw();toast('공지를 올렸어요')}catch(e){toast(e.message)}};
+    box.querySelectorAll('[data-nt]').forEach(b=>b.onclick=async()=>{try{await store.setNotice(+b.dataset.nt,b.dataset.on==='1');notices=await store.listNotices();draw()}catch(e){toast(e.message)}});
     box.querySelector('#cnew').onclick=async()=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const rnd=n=>Array.from(crypto.getRandomValues(new Uint8Array(n)),x=>A[x%A.length]).join('');
       const plan=box.querySelector('#cplan').value;const code=`${plan==='vip'?'VIP':plan==='friend'?'FRD':plan.toUpperCase().slice(0,3)}-${rnd(4)}-${rnd(4)}`;
       const months=box.querySelector('#cmon').value;try{await store.createCode({code,plan,months:months?+months:null,max_uses:1,memo:box.querySelector('#cmemo').value.trim()});codes=await store.listCodes();draw();
@@ -502,7 +517,7 @@ async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],q='';
     box.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{const id=b.dataset.save;const patch={plan:box.querySelector('#ap_'+id).value,plan_until:box.querySelector('#au_'+id).value||null,memo:box.querySelector('#am_'+id).value.trim()};
       b.disabled=true;try{await store.updateMember(id,patch);Object.assign(list.find(x=>x.user_id===id),patch);toast('저장했어요');draw()}catch(e){toast(e.message);b.disabled=false}});
   }
-  async function load(){try{list=await store.adminMembers()||[];try{codes=await store.listCodes()||[]}catch(e){codes=[]}draw()}catch(e){const box=sh.querySelector('#adm');if(box)box.innerHTML=`<p class="note">${esc(e.message)}. 관리자 설정 글(admin.sql)을 실행했는지 확인해 주세요.</p>`}}
+  async function load(){try{list=await store.adminMembers()||[];try{codes=await store.listCodes()||[]}catch(e){codes=[]}try{notices=await store.listNotices()||[]}catch(e){notices=[]}draw()}catch(e){const box=sh.querySelector('#adm');if(box)box.innerHTML=`<p class="note">${esc(e.message)}. 관리자 설정 글(admin.sql)을 실행했는지 확인해 주세요.</p>`}}
   load();
 }
 

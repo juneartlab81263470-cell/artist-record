@@ -1,4 +1,4 @@
--- 작가 활동기록: VIP 등급과 초대 코드
+-- 작가 활동기록: VIP 등급, 초대 코드, 공지
 -- admin.sql을 실행한 뒤, SQL Editor에 통째로 붙여 넣고 Run 하세요. (한 번만)
 
 -- 1) VIP 등급 추가 (작품 수 제한 없음, 기한 없음)
@@ -57,3 +57,18 @@ begin
     used_by = (select email from auth.users where id = auth.uid()) where code = ic.code;
   return 'OK:' || ic.plan;
 end $$;
+
+-- 4) 공지 (관리자가 쓰면 회원이 앱을 열 때 위에 한 번 보여요)
+create table if not exists public.notices (
+  id bigint generated always as identity primary key,
+  title text not null,
+  body text not null default '',
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table public.notices enable row level security;
+drop policy if exists "members read notices" on public.notices;
+create policy "members read notices" on public.notices for select to authenticated using (active or public.is_admin());
+drop policy if exists "admin write notices" on public.notices;
+create policy "admin write notices" on public.notices for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
