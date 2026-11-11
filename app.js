@@ -14,22 +14,24 @@ const TYPES = {
     {k:'medium',l:'기법·재료',ph:'Woodcut (Reduction Method) · 소멸기법'},{k:'base',l:'바탕 재료',ph:'한지, 은행나무 판 등'},
     {k:'subject',l:'작품에 보이는 소재',ph:'모란'},
     {k:'statement',l:'작업 의도 · 나의 이야기',t:'area'},
-    {k:'desc',l:'포트폴리오에 넣을 작품 설명',t:'area',ph:'포트폴리오 작품 쪽에 그대로 들어가요'},
-    {k:'descEn',l:'작품 설명 · 영문',t:'area'},
+    {k:'desc',l:'긴 설명 (작품 해설)',t:'area',ph:'포트폴리오 작품 쪽에 들어가요. "이 작품은"으로 시작하지 말고 제목으로 시작해 보세요'},
+    {k:'summary',l:'한 줄 요약',ph:'50자 안팎으로 작품을 한 문장에'},
+    {k:'descEn',l:'영문 해설',t:'area'},
     {k:'phrase',l:'문구',grp:'calli',t:'area'},{k:'source',l:'출처',grp:'calli',ph:'시인, 경전, 자작 등'},{k:'script',l:'서체',grp:'calli',ph:'궁체 흘림, 자유체 등'},
     {k:'plate',l:'판종',grp:'print',ph:'목판, 고무판, 동판',half:1},{k:'colors',l:'판 수 · 색 수',grp:'print',ph:'1판 5색',half:1},
     {k:'method',l:'찍는 방식 · 기법 상세',grp:'print',ph:'소멸기법, 다색 판화, 바렌 인쇄 등'},
     {k:'note',l:'메모',t:'area'}],
     slots:[{k:'main',l:'작품 사진',multi:1}]},
   exhibition:{label:'전시', fields:[
-    {k:'title',l:'전시명',req:1},{k:'kind',l:'구분',t:'select',req:1,opts:['개인전','단체전','초대전','아트페어','공모전']},
-    {k:'venue',l:'장소'},{k:'start',l:'시작일',t:'date',half:1},{k:'end',l:'종료일',t:'date',half:1},
+    {k:'title',l:'전시명',req:1},{k:'kind',l:'구분',t:'select',req:1,opts:['개인전','초대전','기획전','단체전','아트페어','공모전','기타']},
+    {k:'y',l:'연도',t:'number',ph:'2025',half:1},{k:'venue',l:'장소',half:1},{k:'start',l:'시작일',t:'date',half:1},{k:'end',l:'종료일',t:'date',half:1},
     {k:'host',l:'주최',half:1},{k:'organizer',l:'주관',half:1},{k:'note',l:'메모',t:'area'}],
-    slots:[{k:'ccover',l:'도록 표지',need:'필수'},{k:'cinner',l:'도록 내지',need:'선택',hint:'판권면, 참여작가 명단 등'},{k:'cpage',l:'도록 작품 페이지',need:'필수',hint:'내 작품이 실린 쪽',multi:1},{k:'venue',l:'전시장 사진',need:'필수',hint:'전경, 작품이 걸린 모습',multi:1},{k:'works',l:'출품 작품 사진',hint:'작품 기록이 없어도 여기 바로 넣을 수 있어요',multi:1},{k:'poster',l:'포스터·리플렛',multi:1},{k:'main',l:'기타 증빙',hint:'초대장, 기사 등',multi:1}]},
+    slots:[{k:'ccover',l:'도록 표지',need:'필수'},{k:'cinner',l:'도록 내지',need:'선택',hint:'판권면, 참여작가 명단 등 · 여러 장 넣을 수 있어요',multi:1},{k:'cpage',l:'도록 작품 페이지',need:'필수',hint:'내 작품이 실린 쪽',multi:1},{k:'venue',l:'전시장 사진',need:'필수',hint:'전경, 작품이 걸린 모습',multi:1},{k:'works',l:'출품 작품 사진',hint:'작품 기록이 없어도 여기 바로 넣을 수 있어요',multi:1},{k:'poster',l:'포스터·리플렛',multi:1},{k:'main',l:'기타 증빙',hint:'초대장, 기사 등',multi:1}]},
   award:{label:'수상', fields:[
-    {k:'title',l:'대회·공모전명',req:1},{k:'prize',l:'상 이름',ph:'특선, 입선, 대상'},{k:'host',l:'주최'},{k:'workId',l:'수상 작품',t:'worksel'},
+    {k:'title',l:'대회·공모전명',req:1},{k:'y',l:'연도',t:'number',ph:'2025',half:1},{k:'cat',l:'부문',ph:'캘리그라피, 판화 등',half:1},
+    {k:'prize',l:'수상 내역',ph:'특선, 입선, 대상'},{k:'host',l:'주최'},
     {k:'date',l:'수상일',t:'date'},{k:'note',l:'메모',t:'area'}],
-    slots:[{k:'main',l:'상장 사진',multi:1},{k:'work',l:'수상 작품 사진',hint:'작품 기록이 없어도 여기 바로 넣을 수 있어요',multi:1}]},
+    slots:[{k:'main',l:'상장',need:'필수',multi:1},{k:'acover',l:'도록 표지'},{k:'apage',l:'작품 페이지',hint:'내 작품이 실린 쪽 · 여러 장',multi:1},{k:'work',l:'수상 작품 사진',hint:'작품 기록이 없어도 여기 바로 넣을 수 있어요',multi:1}]},
   catalog:{label:'도록', fields:[
     {k:'title',l:'도록명',req:1},{k:'exhibitionId',l:'연결할 전시',t:'exsel'},{k:'publisher',l:'발행처'},
     {k:'date',l:'발행일',t:'date',half:1},{k:'pages',l:'내 작품 수록 쪽',ph:'p.24–25',half:1},{k:'note',l:'메모',t:'area'}],
@@ -55,9 +57,16 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const uid=()=>(crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&3|8)).toString(16)}));
 function dateOf(r){const f=r.f||{};if(r.type==='work'){const m=String(f.made||'').match(/(\d{4})\D*(\d{1,2})?\D*(\d{1,2})?/);
   if(m)return `${m[1]}-${String(m[2]||1).padStart(2,'0')}-${String(m[3]||1).padStart(2,'0')}`;return f.year?f.year+'-01-01':''}
-  return f.start||f.date||''}
+  return f.start||f.date||(f.y?f.y+'-01-01':'')}
 function fmtDate(d){if(!d)return'';const [y,m,dd]=d.split('-');return dd&&m?`${y}. ${+m}. ${+dd}.`:m?`${y}. ${+m}.`:y}
 function fmtRange(a,b){if(!a)return'';if(!b||a===b)return fmtDate(a);const [y1]=a.split('-'),[y2,m2,d2]=b.split('-');return fmtDate(a)+' – '+(y1===y2?`${+m2}. ${+d2}.`:fmtDate(b))}
+/* sheet stack: phone back button closes the top sheet */
+const sheetStack=[];
+function hideSheet(){const sh=$('#sheet');sh.hidden=true;sh.innerHTML='';document.body.style.overflow=''}
+function openSheet(onClose){const sh=$('#sheet');sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';sheetStack.push(onClose||hideSheet);try{history.pushState({sheet:sheetStack.length},'')}catch(e){}}
+function closeSheet(){if(sheetStack.length)history.back();else{hideSheet();render()}}
+window.addEventListener('popstate',()=>{if($('#lightbox')){$('#lightbox').remove();return}const fn=sheetStack.pop();if(fn)fn()});
+function lightbox(src){if(!src)return;const d=document.createElement('div');d.id='lightbox';d.innerHTML=`<img src="${esc(src)}" alt=""><button class="btn" aria-label="닫기">닫기</button>`;d.onclick=()=>history.back();document.body.appendChild(d);try{history.pushState({lb:1},'')}catch(e){}}
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2400)}
 const byDate=(x,y)=>dateOf(x).localeCompare(dateOf(y))||String(x.f?.code||'').localeCompare(String(y.f?.code||''),undefined,{numeric:true});
 const sorted=a=>[...a].sort((x,y)=>byDate(y,x));
@@ -159,17 +168,35 @@ function CloudStore(cfg){
   };
 }
 
+/* ---------- 임시저장 (이 기기에만) ---------- */
+const Drafts=(()=>{let db=null;const mem=new Map();const ids=new Set();
+  const open=()=>new Promise(res=>{try{const r=indexedDB.open('jalp-drafts',1);r.onupgradeneeded=()=>r.result.createObjectStore('d');r.onsuccess=()=>{db=r.result;res()};r.onerror=()=>res()}catch(e){res()}});
+  const tx=(mode,fn)=>new Promise(res=>{if(!db){res(null);return}try{const t=db.transaction('d',mode);const q=fn(t.objectStore('d'));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>res(null)}catch(e){res(null)}});
+  return {ids,
+    async init(){await open();const ks=db?await tx('readonly',s=>s.getAllKeys()):[...mem.keys()];(ks||[]).forEach(k=>ids.add(k))},
+    async get(k){return db?await tx('readonly',s=>s.get(k)):mem.get(k)},
+    async put(k,v){ids.add(k);if(db)await tx('readwrite',s=>s.put(v,k));else mem.set(k,v)},
+    async del(k){ids.delete(k);if(db)await tx('readwrite',s=>s.delete(k));else mem.delete(k)}}})();
+const norm=t=>String(t||'').replace(/\s+/g,'').toLowerCase();
+const recYear=x=>(dateOf(x)||'').slice(0,4);
+const linksOf=w=>w.f?.links||[];
+function worksOf(rec){return S.records.filter(w=>w.type==='work'&&(linksOf(w).includes(rec.id)||(rec.type==='award'&&rec.f.workId===w.id)))}
+function exhibitionsOf(w){return sorted(S.records.filter(x=>x.type==='exhibition'&&linksOf(w).includes(x.id)))}
+function awardsOf(w){return sorted(S.records.filter(a=>a.type==='award'&&(linksOf(w).includes(a.id)||a.f.workId===w.id)))}
+const awardLine=a=>[recYear(a),a.f.title,a.f.cat,a.f.prize].filter(Boolean).join(' ');
+const exLine=x=>[recYear(x),`「${x.f.title}」`,x.f.kind,x.f.venue].filter(Boolean).join(' ');
+
 /* ---------- state ---------- */
 const cfg=window.APP_CONFIG||{};
 const cloudReady=!!(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY&&window.supabase);
 const store=cloudReady?CloudStore(cfg):LocalStore();
-const S={records:[],settings:{...DEFAULT_SETTINGS,genres:[...DEFAULT_SETTINGS.genres]},tab:'list',view:'list',sort:'old',plan:null,notice:null,contact:null,ftype:'all',fgenre:'all',user:null,
+const S={records:[],settings:{...DEFAULT_SETTINGS,genres:[...DEFAULT_SETTINGS.genres]},tab:'list',view:'list',sort:'old',plan:null,notice:null,contact:null,ftype:'work',fgenre:'all',user:null,
   out:{preset:'artproof',types:[],years:5,genres:[],photos:true,title:'',layout:'list',desc:'ko',order:[],skip:[]}};
 
 function subline(r){const f=r.f||{};switch(r.type){
   case'work':return[f.code&&('#'+f.code),f.year,f.medium,f.size,f.edition].filter(Boolean).join(' · ');
-  case'exhibition':return[f.kind,f.venue,fmtRange(f.start,f.end)].filter(Boolean).join(' · ');
-  case'award':return[f.prize,f.host,fmtDate(f.date)].filter(Boolean).join(' · ');
+  case'exhibition':return[f.kind,f.venue,fmtRange(f.start,f.end)||f.y].filter(Boolean).join(' · ');
+  case'award':return[f.cat,f.prize,f.host,fmtDate(f.date)||f.y].filter(Boolean).join(' · ');
   case'catalog':{const ex=S.records.find(x=>x.id===f.exhibitionId);return[ex&&('「'+ex.f.title+'」'),f.publisher,fmtDate(f.date)].filter(Boolean).join(' · ')}
   case'class':return[f.org,fmtRange(f.start,f.end),f.sessions].filter(Boolean).join(' · ')}}
 
@@ -247,6 +274,7 @@ function bindInstall(){document.querySelectorAll('[data-install]').forEach(b=>b.
 function redeemMsg(r){if(String(r).startsWith('OK:'))return `초대 코드가 적용됐어요. 이제 ${PLANS[String(r).slice(3)]?.l||''} 등급이에요`;
   return {NOT_FOUND:'없는 초대 코드예요. 글자를 다시 확인해 주세요',EXPIRED:'사용 기한이 지난 초대 코드예요',USED_UP:'이미 사용된 초대 코드예요'}[r]||'초대 코드를 적용하지 못했어요'}
 async function afterLogin(){
+  await Drafts.init();
   S.user=await store.user();$('#app').innerHTML='<div class="loading">기록을 불러오는 중…</div>';
   try{
     const st=await store.getSettings();if(st)S.settings=st;
@@ -273,6 +301,7 @@ function viewList(){
   <div class="top"><div><h1 class="wm" role="img" aria-label="JALP · JuneArtLab Portfolio"></h1><div class="sub">${esc(S.settings.name||'작가')} · 한 번 기록하고 제출처마다 골라 출력</div></div>${store.mode==='cloud'?'<button class="btn small" id="sync" aria-label="다른 기기에서 넣은 기록 불러오기">↻ 새로고침</button>':''}</div>
   ${installBanner()}
   ${S.notice?`<div class="banner notice"><div style="min-width:0"><b>📢 ${esc(S.notice.title)}</b>${S.notice.body?`<p style="margin:4px 0 0;white-space:pre-line">${esc(S.notice.body)}</p>`:''}</div><button class="btn small" id="ncl">닫기</button></div>`:''}
+  ${Drafts.ids.has('new')?`<div class="banner draftb"><span>✎ 쓰다 만 새 기록이 임시저장돼 있어요.</span><button class="btn small primary" id="resume">이어서 쓰기</button></div>`:''}
   ${store.mode==='local'?`<div class="banner"><span><span class="syncdot local"></span>체험 모드예요. 기록이 이 기기에만 저장돼요.</span></div>`:''}
   <div class="stats">${counts.map(([t,n])=>`<button class="stat" data-ft="${t}" aria-pressed="${S.ftype===t}"><b>${n}</b><span>${TYPES[t].label}</span></button>`).join('')}</div>
   ${yearLine()}
@@ -288,6 +317,7 @@ function viewList(){
   document.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{S.view=b.dataset.vw;render()});
   document.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(S.records.find(r=>r.id===b.dataset.id)));
   $('#sync')?.addEventListener('click',()=>syncNow(false));
+  $('#resume')?.addEventListener('click',()=>openEditor(null));
 }
 function yearLine(){const y=String(new Date().getFullYear());const R=S.records.filter(r=>dateOf(r).startsWith(y));if(!S.records.length)return'';
   const n=t=>R.filter(r=>r.type===t).length;const parts=[['exhibition','전시','회'],['award','수상','건'],['work','새 작품','점'],['class','강의','건']].filter(([t])=>n(t)).map(([t,l,u])=>`${l} ${n(t)}${u}`);
@@ -298,72 +328,177 @@ function tableHTML(L){const onlyWork=L.every(r=>r.type==='work');
     const img=`<td>${u?`<img src="${esc(u)}" alt="" loading="lazy">`:''}</td>`;
     return onlyWork?`<tr data-id="${r.id}"><td class="n">${i+1}</td><td class="n">${esc(f.code||'')}</td>${img}<td><b>${esc(f.title)}</b>${(f.titleHan?`<small>${esc(f.titleHan)}</small>`:'')+(f.titleEn?`<small>${esc(f.titleEn)}</small>`:'')}</td><td>${esc((r.genres||[]).join(', '))}</td><td class="n">${esc(f.made||f.year||'')}</td><td>${esc(f.size||'')}</td><td>${esc(f.medium||'')}</td><td>${esc(f.edition||'')}</td><td>${esc([...awardsFor(r),f.note].filter(Boolean).join(', '))}</td><td><span class="btn small">상세보기</span></td></tr>`
       :`<tr data-id="${r.id}"><td class="n">${i+1}</td>${img}<td><span class="pill type">${TYPES[r.type].label}</span></td><td><b>${esc(f.title)}</b></td><td class="n">${esc(fmtDate(dateOf(r)))}</td><td>${esc(subline(r))}</td><td><span class="btn small">상세보기</span></td></tr>`}).join('')}</tbody></table></div>`}
-function openDetail(r){if(!r)return;const sh=$('#sheet');const T=TYPES[r.type];
-  const rows=T.fields.filter(fd=>r.f[fd.k]&&fd.k!=='title').map(fd=>{let v=r.f[fd.k];
-    if(fd.t==='exsel'||fd.t==='worksel'){const x=S.records.find(y=>y.id===v);return x?`<div class="dr"><dt>${fd.l}</dt><dd><button class="linkbtn" data-go="${x.id}">${esc(x.f.title)}</button></dd></div>`:''}
-    if(fd.t==='date')v=fmtDate(v);
-    return `<div class="dr"><dt>${fd.l}</dt><dd>${esc(v)}</dd></div>`}).join('');
-  const linked=S.records.filter(x=>x.f.exhibitionId===r.id||x.f.workId===r.id);
-  sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">닫기</button><b>${T.label}</b><button class="btn primary" id="edit">수정</button></div></div>
-  <div class="wrap detail"><h1>${esc(r.f.title||'(제목 없음)')}</h1>
-    ${r.type==='work'&&workTitles(r.f)?`<p class="dsub2">${esc(workTitles(r.f))}</p>`:''}
+function thumbs(ps,cls='dthumbs'){return ps.length?`<div class="${cls}">${ps.map(p=>{const u=store.url(p);return u?`<img src="${esc(u)}" alt="" loading="lazy" data-lb>`:''}).join('')}</div>`:''}
+function openDetail(r,opts={}){
+  if(!r){if(opts.replace)closeSheet();return}
+  const sh=$('#sheet');const T=TYPES[r.type];const f=r.f||{};
+  const self=()=>S.records.find(x=>x.id===r.id);
+  const reopen=()=>openDetail(self(),{replace:true});
+  const dl=keys=>keys.map(k=>{const fd=T.fields.find(x=>x.k===k);let v=f[k];if(!fd||!v)return'';if(fd.t==='date')v=fmtDate(v);return `<div class="dr"><dt>${fd.l}</dt><dd>${esc(v)}</dd></div>`}).join('');
+  const sec=(h,body)=>body?`<section class="dsec"><h2>${h}</h2>${body}</section>`:'';
+  let body='',head=T.label;
+  if(r.type==='work'){
+    const ws=sortedView(S.records.filter(x=>x.type==='work'));const i=ws.findIndex(x=>x.id===r.id);const prev=ws[i-1],next=ws[i+1];
+    const ph=(r.photos||[]).filter(p=>store.url(p));const big=ph[0];
+    const exs=exhibitionsOf(r),aws=awardsOf(r);
+    const extra=dl(['statement','phrase','source','script','plate','colors','method','note']);
+    body=`${big?`<img class="dbig" src="${esc(store.url(big))}" alt="${esc(f.title||'')}" data-lb>`:`<div class="dbig empty">사진이 아직 없어요</div>`}
+    ${ph.length>1?thumbs(ph.slice(1)):''}
+    <h1>${esc(f.title||'(제목 없음)')}</h1>
+    ${f.titleHan?`<p class="dsub2 han">${esc(f.titleHan)}</p>`:''}${f.titleEn?`<p class="dsub2">${esc(f.titleEn)}</p>`:''}
+    <div class="tags" style="margin:8px 0 6px">${(r.genres||[]).map(g=>`<span class="pill">${esc(g)}</span>`).join('')}${Drafts.ids.has(r.id)?'<span class="pill draftpill">임시저장 있음</span>':''}</div>
+    ${f.summary?`<p class="dsum">${esc(f.summary)}</p>`:''}
+    ${sec('제작 정보',(()=>{const x=dl(['year','made','code','size','edition','medium','base','subject']);return x?`<dl class="dl">${x}</dl>`:''})())}
+    ${sec('작품 해설',f.desc?`<p class="dtext">${esc(f.desc)}</p>`:'')}
+    ${sec('영문 해설',f.descEn?`<p class="dtext" lang="en">${esc(f.descEn)}</p>`:'')}
+    ${sec('전시 이력',exs.map(x=>`<div class="hist"><button class="linkrow" data-go="${x.id}"><span>${esc(exLine(x))}</span><span aria-hidden="true">›</span></button>${thumbs((x.photos||[]).filter(p=>p.slot==='ccover'||p.slot==='cpage'),'mini')}</div>`).join(''))}
+    ${sec('수상 이력',aws.map(a=>`<div class="hist"><button class="linkrow" data-go="${a.id}"><span>${esc(awardLine(a))}</span><span aria-hidden="true">›</span></button>${thumbs((a.photos||[]).filter(p=>p.slot==='main'),'mini')}</div>`).join(''))}
+    ${!exs.length&&!aws.length?`<p class="note">전시·수상 이력은 [수정하기]에서 바로 넣을 수 있어요.</p>`:''}
+    ${sec('추가 정보',extra?`<dl class="dl">${extra}</dl>`:'')}
+    <div class="pnav">${prev?`<button class="btn" data-pn="${prev.id}">‹ 이전 작품<small>${esc(prev.f.title||'')}</small></button>`:'<span></span>'}${next?`<button class="btn" data-pn="${next.id}">다음 작품 ›<small>${esc(next.f.title||'')}</small></button>`:'<span></span>'}</div>`;
+  }else if(r.type==='exhibition'||r.type==='award'){
+    const isEx=r.type==='exhibition';const ws=worksOf(r);
+    const info=dl(isEx?['kind','y','start','end','venue','host','organizer']:['y','cat','prize','host','date']);
+    const photos=T.slots.map(sl=>{const ps=(r.photos||[]).filter(p=>p.slot===sl.k&&store.url(p));return ps.length?`<div class="dslot"><span class="flabel">${sl.l} <small>${ps.length}장</small></span>${thumbs(ps)}</div>`:''}).join('');
+    body=`<h1>${esc(f.title||'(제목 없음)')}</h1>
+    <div class="tags" style="margin:8px 0 14px"><span class="pill type">${T.label}</span>${f.kind?`<span class="pill">${esc(f.kind)}</span>`:''}${(r.genres||[]).map(g=>`<span class="pill">${esc(g)}</span>`).join('')}</div>
+    ${info?`<dl class="dl">${info}</dl>`:''}
+    ${f.note?`<p class="dtext">${esc(f.note)}</p>`:''}
+    <button class="btn primary wide" id="addev">${isEx?'자료·사진 추가':'자료·상장 추가'}</button>
+    ${sec(isEx?'도록·전시 자료':'상장·자료',photos||`<p class="note">${isEx?'도록 표지, 내지, 작품 페이지, 전시장 사진':'상장, 도록 표지, 작품 페이지'}을 위 버튼으로 넣어 주세요.</p>`)}
+    ${sec(isEx?`출품작 ${ws.length}점`:`수상작 ${ws.length}점`,ws.length?`<div class="list">${ws.map(card).join('')}</div>`:`<p class="note">작품의 [수정하기]에서 이 ${isEx?'전시':'상'}을 고르면 여기에 나와요.</p>`)}`;
+  }else{
+    const rows=T.fields.filter(fd=>f[fd.k]&&fd.k!=='title').map(fd=>{let v=f[fd.k];
+      if(fd.t==='exsel'){const x=S.records.find(y=>y.id===v);return x?`<div class="dr"><dt>${fd.l}</dt><dd><button class="linkbtn" data-go="${x.id}">${esc(x.f.title)}</button></dd></div>`:''}
+      if(fd.t==='date')v=fmtDate(v);return `<div class="dr"><dt>${fd.l}</dt><dd>${esc(v)}</dd></div>`}).join('');
+    const photos=T.slots.map(sl=>{const ps=(r.photos||[]).filter(p=>p.slot===sl.k&&store.url(p));return ps.length?`<div class="dslot"><span class="flabel">${sl.l}</span>${thumbs(ps)}</div>`:''}).join('');
+    const linked=S.records.filter(x=>x.f.exhibitionId===r.id);
+    body=`<h1>${esc(f.title||'(제목 없음)')}</h1>
     <div class="tags" style="margin:8px 0 14px"><span class="pill type">${T.label}</span>${(r.genres||[]).map(g=>`<span class="pill">${esc(g)}</span>`).join('')}</div>
-    ${T.slots.map(sl=>{const ps=r.photos.filter(p=>p.slot===sl.k);return ps.length?`<div class="dph"><span class="flabel">${sl.l}</span>${ps.map(p=>`<img src="${esc(store.url(p))}" alt="${sl.l}">`).join('')}</div>`:''}).join('')}
-    <dl class="dl">${rows||'<p class="note">적힌 정보가 없어요. 수정을 눌러 채워 보세요.</p>'}</dl>
-    ${linked.length?`<h2 style="margin-top:18px">연결된 기록</h2><div class="list" style="margin-top:8px">${linked.map(card).join('')}</div>`:''}
-  </div>`;
-  sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
-  const close=()=>{sh.hidden=true;sh.innerHTML='';document.body.style.overflow=''};
-  sh.querySelector('#cancel').onclick=close;
-  sh.querySelector('#edit').onclick=()=>openEditor(r);
-  sh.querySelectorAll('[data-go],.detail .card').forEach(b=>b.onclick=()=>openDetail(S.records.find(x=>x.id===(b.dataset.go||b.dataset.id))));
+    ${photos}<dl class="dl">${rows||'<p class="note">적힌 정보가 없어요. 수정을 눌러 채워 보세요.</p>'}</dl>
+    ${linked.length?sec('연결된 기록',`<div class="list">${linked.map(card).join('')}</div>`):''}`;
+  }
+  sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">‹ 목록</button><b>${head}</b><button class="btn primary" id="edit">수정하기</button></div></div><div class="wrap detail">${body}</div>`;
+  if(!opts.replace)openSheet(opts.onClose||(()=>{hideSheet();render()}));else sh.scrollTop=0;
+  const edit=()=>openEditor(self(),{fromDetail:true,onClose:reopen});
+  sh.querySelector('#cancel').onclick=closeSheet;
+  sh.querySelector('#edit').onclick=edit;
+  sh.querySelector('#addev')?.addEventListener('click',edit);
+  sh.querySelectorAll('img[data-lb]').forEach(im=>im.onclick=e=>{e.stopPropagation();lightbox(im.src)});
+  sh.querySelectorAll('[data-pn]').forEach(b=>b.onclick=()=>openDetail(S.records.find(x=>x.id===b.dataset.pn),{replace:true}));
+  sh.querySelectorAll('[data-go],.detail .card').forEach(b=>b.onclick=()=>openDetail(S.records.find(x=>x.id===(b.dataset.go||b.dataset.id)),{onClose:reopen}));
 }
 function pcard(r){const p=(r.photos||[])[0];const u=p&&store.url(p);const T=TYPES[r.type];
-  return `<button class="pcard" data-id="${r.id}"><span class="pimg">${u?`<img src="${esc(u)}" alt="" loading="lazy">`:T.label[0]}</span><span class="pm"><b>${esc(r.f.title||'(제목 없음)')}</b><span>${esc(r.type==='work'?workTitles(r.f)||workMeta(r.f):subline(r))}</span>${r.type==='work'&&workTitles(r.f)?`<span>${esc(workMeta(r.f))}</span>`:''}</span></button>`}
+  return `<button class="pcard" data-id="${r.id}"><span class="pimg">${u?`<img src="${esc(u)}" alt="" loading="lazy">`:T.label[0]}</span><span class="pm"><b>${esc(r.f.title||'(제목 없음)')}</b>${Drafts.ids.has(r.id)?'<span class="pill draftpill">임시저장 있음</span>':''}<span>${esc(r.type==='work'?workTitles(r.f)||workMeta(r.f):subline(r))}</span>${r.type==='work'&&workTitles(r.f)?`<span>${esc(workMeta(r.f))}</span>`:''}</span></button>`}
 function card(r){const p=(r.photos||[])[0];const T=TYPES[r.type];const nPh=(r.photos||[]).length;const u=p&&store.url(p);
   return `<button class="card" data-id="${r.id}">${u?`<img class="thumb" src="${esc(u)}" alt="" loading="lazy">`:`<span class="thumb">${T.label[0]}</span>`}
   <span class="meta"><span class="t">${esc(r.f.title||'(제목 없음)')}</span><span class="d">${esc(subline(r))}</span>
-  <span class="tags"><span class="pill type">${T.label}</span>${(r.genres||[]).map(g=>`<span class="pill">${esc(g)}</span>`).join('')}${nPh?`<span class="pill">사진 ${nPh}</span>`:''}</span></span></button>`}
+  <span class="tags"><span class="pill type">${T.label}</span>${(r.genres||[]).map(g=>`<span class="pill">${esc(g)}</span>`).join('')}${nPh?`<span class="pill">사진 ${nPh}</span>`:''}${Drafts.ids.has(r.id)?'<span class="pill draftpill">임시저장 있음</span>':''}</span></span></button>`}
 
 /* ---------- editor ---------- */
-function openEditor(rec){
-  const isNew=!rec; const r=rec?JSON.parse(JSON.stringify(rec)):{id:uid(),type:S.ftype!=='all'?S.ftype:'work',f:{},genres:S.fgenre!=='all'?[S.fgenre]:[],photos:[],created:new Date().toISOString()};
+async function openEditor(rec,opts={}){
+  const isNew=!rec;const dkey=rec?rec.id:'new';
+  const blank=()=>({id:uid(),type:S.ftype!=='all'?S.ftype:'work',f:{},genres:S.fgenre!=='all'?[S.fgenre]:[],photos:[],created:new Date().toISOString()});
+  let r=rec?JSON.parse(JSON.stringify(rec)):blank();
+  let restored=null;try{const d=await Drafts.get(dkey);if(d&&d.r&&(isNew||d.r.id===rec.id)){r=d.r;restored=d.ts||Date.now()}}catch(e){}
   const sh=$('#sheet');let confirmDel=false,busy=false,draft=null,helpQ=false,qa={},replaceAsk=false;
-  function draw(){const T=TYPES[r.type];
+  let lx={y:'',title:'',venue:''},la={y:'',title:'',cat:'',prize:''},acFor=null;
+  const DONE=()=>{};
+  /* --- autosave --- */
+  let tmr=null;
+  const snapshot=()=>JSON.stringify({f:r.f,genres:r.genres,photos:r.photos.map(p=>p.path||(p.src||'').length),type:r.type});
+  const origSnap=rec?JSON.stringify({f:rec.f,genres:rec.genres,photos:rec.photos.map(p=>p.path||(p.src||'').length),type:rec.type}):null;
+  async function autosave(){clearTimeout(tmr);tmr=null;if(busy||!sh.querySelector('#ef'))return;collect();
+    const empty=isNew&&!Object.values(r.f).some(v=>Array.isArray(v)?v.length:String(v||'').trim())&&!r.photos.length;
+    if(empty||(origSnap&&snapshot()===origSnap)){if(Drafts.ids.has(dkey))await Drafts.del(dkey);return}
+    try{await Drafts.put(dkey,{r:JSON.parse(JSON.stringify(r)),ts:Date.now()})}catch(e){}}
+  const later=()=>{clearTimeout(tmr);tmr=setTimeout(autosave,600)};
+  const onHide=()=>{if(document.visibilityState==='hidden'&&tmr)autosave()};
+  document.addEventListener('visibilitychange',onHide);
+  /* --- links (work only) --- */
+  function linkHTML(){if(r.type!=='work')return'';const L=r.f.links||[];
+    const exs=L.map(id=>S.records.find(x=>x.id===id)).filter(x=>x&&x.type==='exhibition');
+    const aws=L.map(id=>S.records.find(x=>x.id===id)).filter(x=>x&&x.type==='award');
+    const ac=(kind)=>{if(acFor!==kind)return'';const q=norm(kind==='ex'?lx.title:la.title);if(!q)return'';
+      const pool=S.records.filter(x=>x.type===(kind==='ex'?'exhibition':'award')&&!L.includes(x.id)&&norm(x.f.title).includes(q)).slice(0,6);
+      return pool.length?`<div class="aclist">${pool.map(x=>`<button type="button" data-ac="${x.id}">${esc(x.type==='award'?awardLine(x):exLine(x))}</button>`).join('')}</div>`:''};
+    return `<div class="links"><h3>전시 이력</h3>
+      ${exs.length?`<div class="lchips">${exs.map(x=>`<span class="lchip">${esc(exLine(x))}<button type="button" data-unlink="${x.id}" aria-label="연결 빼기">✕</button></span>`).join('')}</div>`:'<p class="note">아직 연결된 전시가 없어요.</p>'}
+      <div class="laddrow"><input id="lx_y" inputmode="numeric" placeholder="연도" value="${esc(lx.y)}" aria-label="전시 연도"><div class="acwrap"><input id="lx_title" placeholder="전시명 (치면 이미 넣은 전시가 떠요)" value="${esc(lx.title)}" autocomplete="off" aria-label="전시명">${ac('ex')}</div><input id="lx_venue" placeholder="장소" value="${esc(lx.venue)}" aria-label="전시 장소"><button type="button" class="btn small" id="lx_add">추가</button></div>
+      <h3>수상 이력</h3>
+      ${aws.length?`<div class="lchips">${aws.map(x=>`<span class="lchip">${esc(awardLine(x))}<button type="button" data-unlink="${x.id}" aria-label="연결 빼기">✕</button></span>`).join('')}</div>`:'<p class="note">아직 연결된 수상이 없어요.</p>'}
+      <div class="laddrow"><input id="la_y" inputmode="numeric" placeholder="연도" value="${esc(la.y)}" aria-label="수상 연도"><div class="acwrap"><input id="la_title" placeholder="대회·공모전명" value="${esc(la.title)}" autocomplete="off" aria-label="대회·공모전명">${ac('aw')}</div><input id="la_cat" placeholder="부문" value="${esc(la.cat)}" aria-label="부문"><input id="la_prize" placeholder="수상 내역 (특선 등)" value="${esc(la.prize)}" aria-label="수상 내역"><button type="button" class="btn small" id="la_add">추가</button></div>
+      <p class="note">같은 이름·같은 연도는 새로 만들지 않고 이미 있는 기록에 연결해요. 도록·상장 사진은 저장한 뒤 그 전시·수상 기록에서 넣어요.</p></div>`}
+  function readLinks(){const v=id=>sh.querySelector('#'+id)?.value??'';if(sh.querySelector('#lx_title')){lx={y:v('lx_y').trim(),title:v('lx_title'),venue:v('lx_venue')};la={y:v('la_y').trim(),title:v('la_title'),cat:v('la_cat'),prize:v('la_prize')}}}
+  function link(id){r.f.links=[...new Set([...(r.f.links||[]),id])]}
+  async function addLink(kind){readLinks();const o=kind==='ex'?lx:la;const t=o.title.trim();if(!t){toast(kind==='ex'?'전시명을 적어 주세요':'대회·공모전명을 적어 주세요');return}
+    const type=kind==='ex'?'exhibition':'award';const y=(o.y.match(/\d{4}/)||[''])[0];
+    let found=S.records.find(x=>x.type===type&&norm(x.f.title)===norm(t)&&(!y||!recYear(x)||recYear(x)===y));
+    if(!found){const nr={id:uid(),type,f:kind==='ex'?{title:t,y,venue:o.venue.trim()}:{title:t,y,cat:o.cat.trim(),prize:o.prize.trim()},genres:[...r.genres],photos:[],created:new Date().toISOString()};
+      try{found=await store.save(nr,null);S.records.push(found);toast(kind==='ex'?'새 전시를 만들고 연결했어요':'새 수상 기록을 만들고 연결했어요')}catch(e){toast(e.message);return}}
+    else toast('이미 있는 기록에 연결했어요');
+    link(found.id);if(kind==='ex')lx={y:'',title:'',venue:''};else la={y:'',title:'',cat:'',prize:''};acFor=null;draw();later()}
+  function draw(){const T=TYPES[r.type];const keepY=sh.querySelector('.wrap')?.scrollTop;
     sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">닫기</button><b>${isNew?'새 기록':'기록 수정'}</b><button class="btn primary" id="save" ${busy?'disabled':''}>${busy?'저장 중…':'저장'}</button></div></div>
     <div class="wrap" style="padding-bottom:40px"><form class="form" id="ef" novalidate>
+      ${restored?`<div class="banner draftb"><span>임시저장된 내용을 불러왔어요 <small>(${new Date(restored).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})})</small></span><button type="button" class="btn small" id="dropdraft">임시저장 버리기</button></div>`:''}
       ${isNew?`<div><span class="flabel">무엇을 기록할까요?</span><div class="typesel">${TYPE_ORDER.map(t=>`<button type="button" data-t="${t}" aria-pressed="${r.type===t}">${TYPES[t].label}</button>`).join('')}</div></div>`:''}
       ${fieldsHTML(T)}
-      ${r.type==='work'?`<div class="draft"><div class="sh2"><b>작품 설명 도우미</b><span class="actions"><button type="button" class="btn small" id="helpq">질문에 답하며 쓰기</button><button type="button" class="btn small" id="mkdraft">입력한 내용으로 초안</button></span></div>
-        <p class="note">직접 쓰셔도 되고, 쓰기 어려우면 질문에 짧게 답해 보세요. 답을 엮어 초안을 만들어 드려요.</p>
+      ${linkHTML()}
+      ${r.type==='work'?`<div class="draft"><div class="sh2"><b>작품 설명 도우미</b><span class="actions"><button type="button" class="btn small primary" id="helpq">내 이야기로 쓰기</button><button type="button" class="btn small" id="mkdraft">입력한 내용으로 초안</button></span></div>
+        <p class="note">직접 쓰셔도 되고, 쓰기 어려우면 질문에 짧게 답해 보세요. 작가님이 적은 소재와 이야기로 초안을 엮어 드려요.</p>
         ${helpQ?`<div class="form">${HELPQ.map(([k,l,ph])=>`<div class="field"><label for="hq_${k}">${l}</label><textarea id="hq_${k}" rows="2" placeholder="${ph}">${esc(qa[k]||'')}</textarea></div>`).join('')}
           <div class="actions"><button type="button" class="btn small primary" id="qadraft">답으로 초안 만들기</button></div></div>`:''}
-        ${draft?`<div class="draftbox">${esc(draft.ko)}${draft.en?`<hr><span lang="en">${esc(draft.en)}</span>`:''}</div><div class="actions">${replaceAsk?`<span class="note">이미 적힌 작품 설명이 있어요. 초안으로 바꿀까요?</span><button type="button" class="btn small primary" id="usedraft2">바꾸기</button><button type="button" class="btn small" id="nodraft">그대로 두기</button>`:`<button type="button" class="btn small primary" id="usedraft">이 초안을 작품 설명에 넣기</button>`}</div>`:''}</div>`:''}
+        ${draft?`<div class="draftbox">${esc(draft.ko)}${draft.en?`<hr><span lang="en">${esc(draft.en)}</span>`:''}</div><div class="actions">${replaceAsk?`<span class="note">이미 적힌 긴 설명이 있어요. 초안으로 바꿀까요?</span><button type="button" class="btn small primary" id="usedraft2">바꾸기</button><button type="button" class="btn small" id="nodraft">그대로 두기</button>`:`<button type="button" class="btn small primary" id="usedraft">이 초안을 긴 설명에 넣기</button>`}</div>`:''}</div>`:''}
       <div><span class="flabel">장르 (여러 개 선택 가능)</span><div class="checks">${[...S.settings.genres,...r.genres.filter(g=>!S.settings.genres.includes(g))].map((g,i)=>`<label><input type="checkbox" id="g${i}" value="${esc(g)}" ${r.genres.includes(g)?'checked':''}>${esc(g)}</label>`).join('')}</div>
         <div class="field" style="margin-top:8px"><label for="gother">기타 (목록에 없으면 직접 입력)</label><input id="gother" placeholder="예: 판각캘리그라피, 도자, 섬유미술"></div></div>
       ${T.slots.map(s=>slotHTML(s)).join('')}
       ${!isNew?`<div class="confirm">${confirmDel?`정말 지울까요? 되돌릴 수 없어요. <button type="button" class="btn small danger" id="delyes">지우기</button><button type="button" class="btn small" id="delno">취소</button>`:`<button type="button" class="btn small danger" id="del">이 기록 지우기</button>`}</div>`:''}
     </form></div>`;
-    sh.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{collect();r.type=b.dataset.t;draw()});
-    sh.querySelector('#cancel').onclick=close;
+    if(keepY)sh.querySelector('.wrap').scrollTop=keepY;
+    sh.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{collect();r.type=b.dataset.t;draw();later()});
+    sh.querySelector('#cancel').onclick=()=>{if(tmr)autosave();closeSheet()};
     sh.querySelector('#save').onclick=save;
     sh.querySelector('#ef').onsubmit=e=>{e.preventDefault();save()};
+    sh.querySelector('#ef').addEventListener('input',e=>{if(/^(lx_|la_)/.test(e.target.id||''))return;later();if(e.target.id==='f_summary'||e.target.id==='f_desc'||e.target.id==='f_descEn')tools()});
+    sh.querySelector('#ef').addEventListener('change',e=>{if(!/^(lx_|la_)/.test(e.target.id||''))later()});
+    sh.querySelector('#dropdraft')?.addEventListener('click',async()=>{await Drafts.del(dkey);r=rec?JSON.parse(JSON.stringify(rec)):blank();restored=null;draw();toast('임시저장을 버렸어요')});
     sh.querySelectorAll('input[type=file]').forEach(inp=>inp.onchange=async()=>{collect();const slot=inp.dataset.slot;
       if(!inp.multiple)r.photos=r.photos.filter(p=>p.slot!==slot);
-      for(const f of inp.files){try{r.photos.push({slot,src:await shrink(f)})}catch(e){toast('이미지를 읽지 못했어요: '+f.name)}}draw()});
-    sh.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{collect();r.photos.splice(+b.dataset.rm,1);draw()});
+      for(const f of inp.files){try{r.photos.push({slot,src:await shrink(f)})}catch(e){toast('이미지를 읽지 못했어요: '+f.name)}}draw();later()});
+    sh.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{collect();r.photos.splice(+b.dataset.rm,1);draw();later()});
+    sh.querySelectorAll('.photos img').forEach(im=>im.onclick=()=>lightbox(im.src));
+    /* links */
+    ['lx_title','la_title'].forEach(id=>{const el=sh.querySelector('#'+id);if(!el)return;el.oninput=()=>{const pos=el.selectionStart;readLinks();acFor=id==='lx_title'?'ex':'aw';collect();draw();const n=sh.querySelector('#'+id);n.focus();n.setSelectionRange(pos,pos)}});
+    ['lx_y','lx_venue','la_y','la_cat','la_prize'].forEach(id=>{const el=sh.querySelector('#'+id);if(el)el.oninput=readLinks});
+    sh.querySelectorAll('[data-ac]').forEach(b=>b.onclick=()=>{collect();link(b.dataset.ac);if(acFor==='ex')lx={y:'',title:'',venue:''};else la={y:'',title:'',cat:'',prize:''};acFor=null;draw();later();toast('연결했어요')});
+    sh.querySelectorAll('[data-unlink]').forEach(b=>b.onclick=()=>{collect();r.f.links=(r.f.links||[]).filter(x=>x!==b.dataset.unlink);draw();later()});
+    sh.querySelector('#lx_add')?.addEventListener('click',()=>{collect();addLink('ex')});
+    sh.querySelector('#la_add')?.addEventListener('click',()=>{collect();addLink('aw')});
+    ['lx_title','lx_venue','la_title','la_prize'].forEach(id=>sh.querySelector('#'+id)?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();collect();addLink(id.startsWith('lx')?'ex':'aw')}}));
+    /* summary & desc tools */
+    sh.querySelector('#pick1')?.addEventListener('click',()=>{collect();const d=String(r.f.desc||'').trim();if(!d){toast('긴 설명을 먼저 적어 주세요');return}
+      const m=d.match(/^[\s\S]*?[.!?。](?=\s|$)/);r.f.summary=(m?m[0]:d.split('\n')[0]).trim();draw();later();toast('긴 설명의 첫 문장을 넣었어요')});
+    sh.querySelector('#fixko')?.addEventListener('click',()=>{collect();r.f.desc=fixStart(r.f.desc,r.f,'ko');draw();later();toast('제목으로 시작하게 고쳤어요')});
+    sh.querySelector('#fixen')?.addEventListener('click',()=>{collect();r.f.descEn=fixStart(r.f.descEn,r.f,'en');draw();later();toast('Fixed the opening')});
+    tools();
     const readQ=()=>{for(const [k] of HELPQ){const el=sh.querySelector('#hq_'+k);if(el)qa[k]=el.value.trim()}};
-    const put=()=>{r.f.desc=draft.ko;if(draft.en&&!r.f.descEn)r.f.descEn=draft.en;draft=null;replaceAsk=false;draw();toast('작품 설명 칸에 넣었어요. 고쳐서 저장하세요');sh.querySelector('#f_desc')?.focus()};
+    const put=()=>{r.f.desc=draft.ko;if(draft.en&&!r.f.descEn)r.f.descEn=draft.en;if(!r.f.summary){const m=draft.ko.match(/^[\s\S]*?[.!?。](?=\s|$)/);if(m)r.f.summary=m[0].trim()}draft=null;replaceAsk=false;draw();later();toast('긴 설명 칸에 넣었어요. 고쳐서 저장하세요');sh.querySelector('#f_desc')?.focus()};
     sh.querySelector('#mkdraft')?.addEventListener('click',()=>{collect();readQ();draft=makeDraft(r.f,qa);replaceAsk=false;draw();sh.querySelector('.draftbox')?.scrollIntoView({block:'center'})});
-    sh.querySelector('#helpq')?.addEventListener('click',()=>{collect();helpQ=!helpQ;if(helpQ&&!qa.what)qa={what:r.f.subject||'',how:r.f.medium||'',heart:'',feel:''};draw();sh.querySelector('#hq_what')?.focus()});
+    sh.querySelector('#helpq')?.addEventListener('click',()=>{collect();helpQ=!helpQ;if(helpQ&&!qa.what)qa={what:r.f.subject||'',how:r.f.medium||'',heart:r.f.statement||'',feel:''};draw();sh.querySelector('#hq_what')?.focus()});
     sh.querySelector('#qadraft')?.addEventListener('click',()=>{collect();readQ();draft=makeDraft(r.f,qa);replaceAsk=false;draw();sh.querySelector('.draftbox')?.scrollIntoView({block:'center'})});
     sh.querySelector('#usedraft')?.addEventListener('click',()=>{collect();readQ();if(r.f.desc){replaceAsk=true;draw();return}put()});
     sh.querySelector('#usedraft2')?.addEventListener('click',()=>{collect();readQ();put()});
     sh.querySelector('#nodraft')?.addEventListener('click',()=>{collect();readQ();replaceAsk=false;draw()});
     sh.querySelector('#del')?.addEventListener('click',()=>{collect();confirmDel=true;draw()});
     sh.querySelector('#delno')?.addEventListener('click',()=>{confirmDel=false;draw()});
-    sh.querySelector('#delyes')?.addEventListener('click',async()=>{try{await store.remove(rec);S.records=S.records.filter(x=>x.id!==r.id);close();toast('기록을 지웠어요')}catch(e){toast(e.message)}});
+    sh.querySelector('#delyes')?.addEventListener('click',async()=>{try{await store.remove(rec);await Drafts.del(dkey);S.records=S.records.filter(x=>x.id!==r.id);S.records.forEach(w=>{if(w.f.links?.includes(r.id))w.f.links=w.f.links.filter(x=>x!==r.id)});closeSheet();toast('기록을 지웠어요')}catch(e){toast(e.message)}});
   }
+  function tools(){const sm=sh.querySelector('#f_summary');const c=sh.querySelector('#sumcnt');if(sm&&c){const n=[...sm.value.trim()].length;c.textContent=`${n}자${n>70?' · 조금 길어요 (50자 안팎 권장)':n&&n<20?' · 조금 짧아요':''}`;c.classList.toggle('warn',n>70)}
+    const w=(id,boxId,lang)=>{const el=sh.querySelector('#'+id),box=sh.querySelector('#'+boxId);if(!el||!box)return;const bad=badStart(el.value,lang);
+      box.innerHTML=bad?`<div class="warnline">${lang==='ko'?'설명이 "이 작품은"으로 시작해요. 제목으로 시작하면 더 좋아요.':'Starts with "This work". Starting with the title reads better.'} <button type="button" class="btn small" id="${lang==='ko'?'fixko':'fixen'}">자동 고치기</button></div>`:'';
+      box.querySelector('button')?.addEventListener('click',()=>{collect();if(lang==='ko')r.f.desc=fixStart(r.f.desc,r.f,'ko');else r.f.descEn=fixStart(r.f.descEn,r.f,'en');draw();later();toast('제목으로 시작하게 고쳤어요')})};
+    w('f_desc','warnko','ko');w('f_descEn','warnen','en')}
   function fieldsHTML(T){const main=T.fields.filter(f=>!f.grp);let h=fieldsList(main);
     const G={calli:'문구 · 출처 · 서체 기록 (서예·캘리그라피)',print:'판화 기법 기록'};
     for(const g of Object.keys(G)){const fs=T.fields.filter(f=>f.grp===g);if(!fs.length)continue;const open=fs.some(f=>r.f[f.k]);
@@ -373,9 +508,11 @@ function openEditor(rec){
     for(const fd of list){const v=r.f[fd.k]??'';const id='f_'+fd.k;let inp;
       if(fd.t==='area')inp=`<textarea id="${id}" placeholder="${esc(fd.ph||'')}">${esc(v)}</textarea>`;
       else if(fd.t==='select')inp=`<select id="${id}">${fd.req?`<option value="" ${v?'':'selected'}>골라 주세요</option>`:''}${fd.opts.map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('')}</select>`;
-      else if(fd.t==='exsel'){const exs=sorted(S.records.filter(x=>x.type==='exhibition'));inp=`<select id="${id}"><option value="">연결 안 함</option>${exs.map(x=>`<option value="${x.id}" ${v===x.id?'selected':''}>${esc(x.f.title)} (${esc((x.f.start||'').slice(0,4))})</option>`).join('')}</select>${exs.length?'':'<small class="note">아직 기록한 전시가 없어요. 전시를 먼저 추가하면 여기서 고를 수 있어요. 지금은 저장해 두고 나중에 연결해도 돼요.</small>'}`}
-      else if(fd.t==='worksel'){const ws=[...S.records.filter(x=>x.type==='work')].sort((a,b)=>(a.f.title||'').localeCompare(b.f.title||''));inp=`<select id="${id}"><option value="">연결 안 함</option>${ws.map(x=>`<option value="${x.id}" ${v===x.id?'selected':''}>${esc(x.f.title)}${x.f.year?' ('+esc(x.f.year)+')':''}</option>`).join('')}</select>${ws.length?'':'<small class="note">아직 기록한 작품이 없어요. 작품 사진은 아래 \"수상 작품 사진\" 칸에 바로 넣을 수 있어요. 나중에 작품을 기록하면 여기서 연결할 수 있어요.</small>'}`}
+      else if(fd.t==='exsel'){const exs=sorted(S.records.filter(x=>x.type==='exhibition'));inp=`<select id="${id}"><option value="">연결 안 함</option>${exs.map(x=>`<option value="${x.id}" ${v===x.id?'selected':''}>${esc(x.f.title)} (${esc(recYear(x))})</option>`).join('')}</select>${exs.length?'':'<small class="note">아직 기록한 전시가 없어요. 전시를 먼저 추가하면 여기서 고를 수 있어요. 지금은 저장해 두고 나중에 연결해도 돼요.</small>'}`}
       else inp=`<input id="${id}" type="${fd.t||'text'}" value="${esc(v)}" placeholder="${esc(fd.ph||'')}" ${fd.t==='number'?'inputmode="numeric"':''}>`;
+      if(fd.k==='summary')inp+=`<div class="sumtools"><span id="sumcnt" class="note"></span><button type="button" class="btn small" id="pick1">긴 설명에서 한 줄 뽑기</button></div>`;
+      if(fd.k==='desc')inp+=`<div id="warnko"></div>`;
+      if(fd.k==='descEn')inp+=`<div id="warnen"></div>`;
       const el=`<div class="field"><label for="${id}">${fd.l}${fd.req?' *':''}</label>${inp}</div>`;
       if(fd.half)buf.push(el);else{flush();h+=el}}
     flush();return h}
@@ -383,28 +520,36 @@ function openEditor(rec){
     return `<div class="slot"><div class="sh"><b>${s.l}${s.need?` <em class="need ${s.need==='필수'?'req':''}">${s.need}</em>`:''}${s.hint?`<small>${s.hint}</small>`:''}</b>
       <span class="btn small filebtn">${ph.length&&!s.multi?'바꾸기':'사진 추가'}<input type="file" accept="image/*" data-slot="${s.k}" ${s.multi?'multiple':''} aria-label="${s.l} 사진 추가"></span></div>
       ${ph.length?`<div class="photos">${ph.map(([p,i])=>`<div class="pghead"><img src="${esc(store.url(p))}" alt="${s.l}"><button type="button" data-rm="${i}" aria-label="사진 빼기">✕</button></div>`).join('')}</div>`:`<div class="note">아직 사진이 없어요.</div>`}</div>`}
-  function collect(){const T=TYPES[r.type];for(const fd of T.fields){const el=sh.querySelector('#f_'+fd.k);if(el)r.f[fd.k]=el.value.trim()}
+  function collect(){if(!sh.querySelector('#ef'))return;const T=TYPES[r.type];for(const fd of T.fields){const el=sh.querySelector('#f_'+fd.k);if(el)r.f[fd.k]=el.value.trim()}
     const cb=[...sh.querySelectorAll('.checks input')];if(cb.length)r.genres=cb.filter(c=>c.checked).map(c=>c.value);
     const go=sh.querySelector('#gother');if(go&&go.value.trim()){for(const g of go.value.split(/[,·]/).map(x=>x.trim()).filter(Boolean))if(!r.genres.includes(g))r.genres.push(g);go.value=''}}
-  async function save(){if(busy)return;collect();if(!r.f.title){toast(TYPES[r.type].fields[0].l+'을(를) 적어 주세요');sh.querySelector('#f_title')?.focus();return}
+  async function save(){if(busy)return;clearTimeout(tmr);tmr=null;collect();if(!r.f.title){toast(TYPES[r.type].fields[0].l+'을(를) 적어 주세요');sh.querySelector('#f_title')?.focus();return}
     const miss=TYPES[r.type].fields.find(fd=>fd.req&&fd.k!=='title'&&!r.f[fd.k]);if(miss){toast(miss.l+'을(를) 골라 주세요');sh.querySelector('#f_'+miss.k)?.focus();return}
     const keep=new Set(TYPES[r.type].slots.map(s=>s.k));r.photos=r.photos.filter(p=>keep.has(p.slot));
     // 화면에 쓰지 않는 칸 정리
-    const fk=new Set(TYPES[r.type].fields.map(f=>f.k));for(const k of Object.keys(r.f))if(!fk.has(k))delete r.f[k];
+    const fk=new Set([...TYPES[r.type].fields.map(f=>f.k),'links','workId']);for(const k of Object.keys(r.f))if(!fk.has(k))delete r.f[k];
+    if(r.type!=='work')delete r.f.links;
     if(r.type==='work'&&(!rec||rec.type!=='work')&&S.plan){const n=S.records.filter(x=>x.type==='work').length;
       if(n>=S.plan.work_limit){toast(`지금 등급(${PLANS[S.plan.plan]?.l||'무료'})에서는 작품을 ${S.plan.work_limit}점까지 올릴 수 있어요`);return}}
     if(r.type==='work'){const y=r.f.year||(String(r.f.made||'').match(/\d{4}/)||[])[0];if(!r.f.year&&y)r.f.year=y;
       if(!r.f.code&&y){const pre=y.slice(2);const used=S.records.filter(x=>x.type==='work'&&x.id!==r.id).map(x=>String(x.f.code||'')).filter(c=>c.startsWith(pre)&&c.length===4).map(c=>+c.slice(2));
         let n=1;while(used.includes(n))n++;r.f.code=pre+String(n).padStart(2,'0')}}
+    if((r.type==='exhibition'||r.type==='award')&&!r.f.y){const y=(String(r.f.start||r.f.date||'').match(/\d{4}/)||[])[0];if(y)r.f.y=y}
     busy=true;draw();
     try{const saved=await store.save(r,rec);if(S.plan&&r.type==='work'&&!rec)S.plan.work_count++;saved.updated=new Date().toISOString();
       const i=S.records.findIndex(x=>x.id===r.id);if(i>=0)S.records[i]=saved;else S.records.push(saved);
+      await Drafts.del(dkey);
       const ng=r.genres.filter(g=>!S.settings.genres.includes(g));if(ng.length){S.settings.genres.push(...ng);try{await store.setSettings(S.settings)}catch(e){}}
-      close();toast('저장했어요')}
+      document.removeEventListener('visibilitychange',onHide);
+      if(isNew&&!opts.fromDetail){openDetail(S.records.find(x=>x.id===saved.id),{replace:true});sheetStack[sheetStack.length-1]=()=>{hideSheet();render()}}
+      else closeSheet();toast('저장했어요')}
     catch(e){busy=false;draw();toast(/WORK_LIMIT/.test(e.message+(e.cause||''))?'지금 등급에서 올릴 수 있는 작품 수를 넘었어요':e.message)}}
-  function close(){sh.hidden=true;sh.innerHTML='';document.body.style.overflow='';render()}
-  draw();sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
+  draw();
+  openSheet(()=>{document.removeEventListener('visibilitychange',onHide);if(opts.onClose)opts.onClose();else{hideSheet();render()}});
 }
+function badStart(t,lang){t=String(t||'').trim();return lang==='ko'?/^이\s*작품(은|는|에서|에는)?/.test(t):/^this\s+(work|piece|artwork)\b/i.test(t)}
+function fixStart(t,f,lang){t=String(t||'').trim();if(lang==='ko'){const ti=f.title||'';if(!ti)return t.replace(/^이\s*작품(은|는)\s*/,'');return t.replace(/^이\s*작품(은|는)?\s*/,`「${ti}」${josa(ti,'은','는')} `)}
+  const te=f.titleEn||f.title||'';return t.replace(/^this\s+(work|piece|artwork)\b/i,te?`"${te}"`:'It')}
 
 /* ---------- output ---------- */
 function applyPreset(k){const p=PRESETS[k];S.out.preset=k;S.out.types=[...p.types];S.out.years=p.years;S.out.photos=p.photos;S.out.layout=p.layout||'list';
@@ -418,10 +563,10 @@ function orderedWorks(sel){const o=S.out;const ws=sel.filter(r=>r.type==='work')
 function candidateWorks(){const o=S.out;const keep=o.skip;o.skip=[];const all=orderedWorks(selection());o.skip=keep;return all}
 function workTitles(f){return [f.titleHan,f.titleEn].filter(Boolean).join(' / ')}
 function workMeta(f){return [f.year,f.medium,f.size,f.edition].filter(Boolean).join(' · ')}
-function awardsFor(r){return S.records.filter(a=>a.type==='award'&&a.f.workId===r.id).map(a=>[(a.f.date||'').slice(0,4),a.f.title,a.f.prize].filter(Boolean).join(' '))}
+function awardsFor(r){return awardsOf(r).map(awardLine)}
 function line(r){const f=r.f;switch(r.type){
   case'exhibition':{const hs=[f.host&&f.host!==f.venue&&'주최 '+f.host,f.organizer&&'주관 '+f.organizer].filter(Boolean).join(', ');return`「${f.title}」${f.kind?' '+f.kind:''}${f.venue?', '+f.venue:''}${hs?' ('+hs+')':''}`}
-  case'award':return`${f.title}${f.prize?' '+f.prize:''}${f.host?' ('+f.host+')':''}`;
+  case'award':return`${f.title}${f.cat?' '+f.cat+' 부문':''}${f.prize?' '+f.prize:''}${f.host?' ('+f.host+')':''}`;
   case'class':return`「${f.title}」${f.org?', '+f.org:''}${f.sessions?' ('+f.sessions+')':''}`;
   case'catalog':return`『${f.title}』${f.publisher?', '+f.publisher:''}${f.pages?', '+f.pages:''}`;
   case'work':return`「${f.title}」${f.titleEn?' '+f.titleEn:''}${[f.year,f.medium,f.size,f.edition].filter(Boolean).map(x=>', '+x).join('')}`}}
@@ -469,12 +614,12 @@ function bookPages(img=p=>store.url(p)){const o=S.out,st=S.settings,sel=selectio
     ${awards.length?`<ul class="cv-aw">${awards.map(a=>`<li>${esc([(a.f.date||'').slice(0,4),a.f.title,a.f.prize].filter(Boolean).join(' '))}</li>`).join('')}</ul>`:''}</div>
     <div class="cv-bot"><span>${esc(o.genres.join(' · '))}</span>${[st.pemail,st.insta,st.web].filter(Boolean).length?`<span>${esc([st.pemail,st.insta,st.web].filter(Boolean).join('  ·  '))}</span>`:''}</div></section>`);
   if(sel.some(r=>r.type==='exhibition'||r.type==='catalog'||r.type==='class')){pages.push(`<section class="page cvpage doc"><h2 class="pghead">약력</h2>${docBody(img,true)}</section>`)}
-  for(const r of orderedWorks(sel)){const ps=r.photos.filter(p=>p.slot==='main');const f=r.f;const aw=awardsFor(r);
+  for(const r of orderedWorks(sel)){const ps=r.photos.filter(p=>p.slot==='main');const f=r.f;const aw=awardsFor(r);const exs=exhibitionsOf(r).map(exLine);
     const d=o.desc==='none'?'':[o.desc!=='en'&&f.desc,o.desc!=='ko'&&f.descEn].filter(Boolean).map(t=>`<p>${esc(t)}</p>`).join('');
     pages.push(`<section class="page workpage"><div class="wimg">${ps[0]?`<img src="${esc(img(ps[0]))}" alt="">`:'<div class="noimg">사진 없음</div>'}</div>
-    <div class="wcap"><b>${esc(f.title)}</b>${workTitles(f)?`<span class="wsub">${esc(workTitles(f))}</span>`:''}<span>${esc(workMeta(f))}</span>${aw.map(t=>`<span class="waw">${esc(t)}</span>`).join('')}${d}</div>
+    <div class="wcap"><b>${esc(f.title)}</b>${workTitles(f)?`<span class="wsub">${esc(workTitles(f))}</span>`:''}<span>${esc(workMeta(f))}</span>${f.summary?`<span class="wsum">${esc(f.summary)}</span>`:''}${exs.length?`<span class="whist"><em>전시</em> ${exs.map(esc).join(' / ')}</span>`:''}${aw.length?`<span class="whist"><em>수상</em> ${aw.map(esc).join(' / ')}</span>`:''}${d}</div>
     ${ps.length>1&&!d?`<div class="wmore">${ps.slice(1,4).map(p=>`<img src="${esc(img(p))}" alt="">`).join('')}</div>`:''}</section>`)}
-  if(o.photos){const ev=sel.filter(r=>r.type!=='work'&&r.photos.length);
+  if(o.photos&&o.evpages){const ev=sel.filter(r=>r.type!=='work'&&r.photos.length);
     for(const r of ev)pages.push(`<section class="page evpage"><h2 class="pghead">${esc(TYPES[r.type].label)}</h2><h3>${esc(line(r))}</h3><div class="grid">${TYPES[r.type].slots.flatMap(s=>r.photos.filter(p=>p.slot===s.k).map(p=>`<figure><img src="${esc(img(p))}" alt=""><figcaption>${esc(s.l)}</figcaption></figure>`)).join('')}</div></section>`)}
   if(!sel.length)pages.push(`<section class="page"><p>조건에 맞는 기록이 없어요. 장르·기간·항목을 바꿔 보세요.</p></section>`);
   return pages.join('')}
@@ -502,7 +647,8 @@ function viewOut(){const o=S.out;const sel=selection();const one=PRESETS[o.prese
     <div class="field"><label for="pname">작가 이름</label><input id="pname" value="${esc(S.settings.name)}" placeholder="김정은 I 金廷恩 I Kim Jeong Eun"></div>
     <div class="field"><label for="ptag">한 줄 소개</label><input id="ptag" value="${esc(S.settings.tagline||'')}" placeholder="작가와 작업을 한 문장으로"></div>
     <div class="field"><label for="pbio">작가 소개</label><textarea id="pbio" placeholder="표지에 들어가요">${esc(S.settings.bio||'')}</textarea></div>
-    <p>표지에는 고른 기록 중 수상 내역이 자동으로 들어가요.</p></div>`:''}
+    <p>표지에는 고른 기록 중 수상 내역이 자동으로 들어가요.</p>
+    <label class="consent"><input type="checkbox" id="oev" ${o.evpages?'checked':''}> 수상·전시 자료(상장·도록 사진) 페이지 넣기</label></div>`:''}
   ${o.types.includes('work')?workOrderHTML():''}
   <div class="section">
     <p>골라진 기록 <b>${sel.length}</b>건${sel.some(r=>r.type==='work')?` (작품 ${sel.filter(r=>r.type==='work').length}점)`:''}</p>
@@ -521,19 +667,23 @@ function viewOut(){const o=S.out;const sel=selection();const one=PRESETS[o.prese
   $('#oyear')?.addEventListener('click',()=>{o.order=[...ws].sort(byDate).map(w=>w.id);render()});
   const prof=async()=>{S.settings.name=$('#pname').value.trim();S.settings.tagline=$('#ptag').value.trim();S.settings.bio=$('#pbio').value.trim();try{await store.setSettings(S.settings)}catch(e){toast(e.message)}};
   ['#pname','#ptag','#pbio'].forEach(id=>{const el=$(id);if(el)el.onchange=prof});
+  $('#oev')?.addEventListener('change',e=>{o.evpages=e.target.checked});
   $('#preview').onclick=async()=>{upd();await store.photoURLs(selection());openPreview()};
   $('#entry')?.addEventListener('click',async()=>{upd();await store.photoURLs(selection());openEntry()});
   $('#copy').onclick=async()=>{upd();const t=plainText()||'조건에 맞는 기록이 없어요.';try{await navigator.clipboard.writeText(t);toast('약력을 복사했어요')}catch(e){openPreview(t)}};
 }
+function pdfName(base){const d=new Date();const day=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const b=`${safeName(base)||'JALP'}_${day}`;let used=[];try{used=JSON.parse(localStorage.getItem('pdfNames')||'[]')}catch(e){}
+  let n=b,i=2;while(used.includes(n))n=`${b} (${i++})`;used.push(n);try{localStorage.setItem('pdfNames',JSON.stringify(used.slice(-200)))}catch(e){}return n}
 function openPreview(text){const sh=$('#sheet');
   sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">닫기</button><b>${text?'약력 글':'미리보기'}</b>${text?'<span></span>':'<button class="btn primary" id="print">인쇄 / PDF 저장</button>'}</div></div>
   <div class="wrap">${text?`<p class="note">아래 글을 길게 눌러 전체 선택한 뒤 복사하세요.</p><div class="field"><textarea id="ptext" style="min-height:60vh" readonly>${esc(text)}</textarea></div>`:(S.out.layout==='book'?`<div class="docwrap"><div class="book">${bookPages()}</div></div>`:`<div class="docwrap"><div class="doc">${docBody()}</div></div>`)}</div>`;
-  sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
-  sh.querySelector('#cancel').onclick=()=>{sh.hidden=true;sh.innerHTML='';document.body.style.overflow=''};
+  openSheet();
+  sh.querySelector('#cancel').onclick=closeSheet;
   if(text){const ta=sh.querySelector('#ptext');ta.focus();ta.select()}
   sh.querySelector('#print')?.addEventListener('click',async()=>{
     const imgs=[...sh.querySelectorAll('.doc img,.book img')];await Promise.all(imgs.map(i=>i.complete?0:new Promise(r=>{i.onload=i.onerror=r})));
-    const t=document.title;document.title=S.out.title||'JALP';window.print();document.title=t});
+    const t=document.title;document.title=pdfName(S.out.title||'JALP');window.print();document.title=t});
 }
 
 /* ---------- 예술인활동증명 사이트 입력 도우미 ---------- */
@@ -559,8 +709,8 @@ function openEntry(){const sh=$('#sheet');const items=entryItems();
         <div class="actions"><button class="btn primary" data-dlall="${i}">사진 ${it.photos.length}장 모두 받기</button></div>`:`<p class="note">증빙 사진이 아직 없어요. 도록 표지·작품 페이지와 전시장 사진을 넣어 주세요.</p>`}
     </div>`).join(''):`<p>조건에 맞는 전시가 없어요. 기간이나 장르를 바꿔 보세요.</p>`}
   </div>`;
-  sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
-  sh.querySelector('#cancel').onclick=()=>{sh.hidden=true;sh.innerHTML='';document.body.style.overflow=''};
+  openSheet();
+  sh.querySelector('#cancel').onclick=closeSheet;
   const nm=(it,k)=>`${String(k+1).padStart(2,'0')}_${safeName(it.r.f.title)}_${safeName(it.photos[k].l)}`;
   sh.querySelectorAll('[data-cp]').forEach(b=>b.onclick=async()=>{const [i,j]=b.dataset.cp.split(':').map(Number);if(await copyText(items[i].rows[j][1])){toast('복사했어요: '+items[i].rows[j][0]);b.textContent='복사됨';setTimeout(()=>b.textContent='복사',1500)}else toast('복사가 안 돼요. 글자를 길게 눌러 복사해 주세요')});
   sh.querySelectorAll('[data-cpall]').forEach(b=>b.onclick=async()=>{const it=items[+b.dataset.cpall];if(await copyText(it.rows.map(([k,v])=>k+': '+v).join('\n')))toast('전시 정보를 모두 복사했어요')});
@@ -572,8 +722,8 @@ function openEntry(){const sh=$('#sheet');const items=entryItems();
 /* ---------- admin ---------- */
 async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],notices=[],q='';
   sh.innerHTML=`<div class="head"><div class="in"><button class="btn" id="cancel">닫기</button><b>회원 관리</b><button class="btn" id="reload">새로고침</button></div></div><div class="wrap" id="adm"><div class="loading">불러오는 중…</div></div>`;
-  sh.hidden=false;sh.scrollTop=0;document.body.style.overflow='hidden';
-  sh.querySelector('#cancel').onclick=()=>{sh.hidden=true;sh.innerHTML='';document.body.style.overflow='';render()};
+  openSheet(()=>{hideSheet();render()});
+  sh.querySelector('#cancel').onclick=closeSheet;
   sh.querySelector('#reload').onclick=load;
   const day=d=>d?fmtDate(String(d).slice(0,10)):'';
   const ago=d=>{if(!d)return'';const n=Math.floor((Date.now()-new Date(d))/864e5);return n<=0?'오늘':n===1?'어제':n+'일 전'};
@@ -628,16 +778,41 @@ async function openAdmin(){const sh=$('#sheet');let list=[],codes=[],notices=[],
 }
 
 /* ---------- settings ---------- */
+const PRIZE_RANK=['대상','최우수','금상','우수','은상','동상','특별','특선','장려','입선'];
+function prizeScore(a){const t=(a.f.prize||'')+' '+(a.f.title||'');const i=PRIZE_RANK.findIndex(k=>t.includes(k));return i<0?PRIZE_RANK.length:i}
+const EX_KINDS=['개인전','초대전','기획전','단체전','아트페어','공모전','기타'];
+function profileText(short){const s=S.settings;const lines=v=>String(v||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  const name=[s.name,s.nameHan,s.nameEn].filter(Boolean).join(' · ');
+  const aw=S.records.filter(r=>r.type==='award');const ex=S.records.filter(r=>r.type==='exhibition');
+  const newest=L=>[...L].sort((a,b)=>(dateOf(b)||'').localeCompare(dateOf(a)||''));
+  if(short){const top=[...aw].sort((a,b)=>prizeScore(a)-prizeScore(b)||(dateOf(b)||'').localeCompare(dateOf(a)||'')).slice(0,2);
+    const cnt=EX_KINDS.map(k=>[k,ex.filter(x=>x.f.kind===k).length]).filter(([,n])=>n).map(([k,n])=>`${k} ${n}회`);
+    const last=newest(ex)[0];
+    return [name,s.tagline,
+      top.length?'수상: '+top.map(awardLine).join(', '):'',
+      ex.length?`전시 ${ex.length}회${cnt.length?` (${cnt.join(' · ')})`:''}${last?` · 최근 ${exLine(last)}`:''}`:'',
+      lines(s.current).length?'경력: '+lines(s.current).slice(0,2).join(', '):''].filter(Boolean).join('\n')}
+  const out=[name,s.tagline].filter(Boolean);const add=(h,arr)=>{if(arr.length)out.push('',`[${h}]`,...arr)};
+  add('작가 소개',lines(s.bio));add('학력',lines(s.edu));add('주요 경력',lines(s.current));
+  add('수상 경력',newest(aw).map(awardLine));
+  if(ex.length){out.push('','[전시 경력]');const groups=[...EX_KINDS,''];
+    groups.forEach(k=>{const g=newest(ex.filter(x=>(x.f.kind||'')===k||(!k&&!EX_KINDS.includes(x.f.kind))));if(g.length)out.push(`■ ${k||'기타 전시'}`,...g.map(x=>[recYear(x),`「${x.f.title}」`,x.f.venue].filter(Boolean).join(' ')))})}
+  add('연락처',[s.pemail&&('이메일 '+s.pemail),s.insta&&('인스타그램 '+s.insta),s.web&&('웹 '+s.web)].filter(Boolean));
+  return out.join('\n')}
 function viewSet(){const s=S.settings;
   $('#app').innerHTML=`<div class="top"><div><h1>설정</h1></div></div>
-  <div class="section"><h2>작가 프로필</h2><p>여기 적은 내용이 포트폴리오 표지와 협회 제출용 약력에 들어가요.</p>
+  <div class="section"><h2>작가 프로필</h2><p>여기 적은 내용이 포트폴리오 표지와 협회 제출용 약력에 들어가요. 입력하는 대로 자동 저장돼요. <span id="psaved" class="note"></span></p>
+    <div class="actions"><button class="btn small" id="cp5">5줄 요약 복사</button><button class="btn small" id="cpfull">풀버전 복사</button></div>
+    <p class="note" style="margin-top:4px">전시·수상 경력은 기록에 넣은 내용에서 자동으로 가져와요.</p>
     <div class="profrow"><div class="pphoto">${s.photo?`<img src="${esc(s.photo)}" alt="프로필 사진">`:'<span>사진 없음</span>'}</div>
       <div class="actions"><span class="btn small filebtn">${s.photo?'사진 바꾸기':'프로필 사진 넣기'}<input type="file" accept="image/*" id="sphoto" aria-label="프로필 사진"></span>${s.photo?'<button class="btn small" id="sphotorm">빼기</button>':''}</div></div>
-    <div class="field"><label for="sname">작가 이름</label><input id="sname" value="${esc(s.name)}" placeholder="예: 홍길동 I 洪吉童 I Hong Gil-dong"></div>
+    <div class="field"><label for="sname">작가 이름</label><input id="sname" value="${esc(s.name)}" placeholder="예: 홍길동"></div>
+    <div class="row2"><div class="field"><label for="snh">한자 이름</label><input id="snh" value="${esc(s.nameHan||'')}" placeholder="洪吉童"></div>
+    <div class="field"><label for="sne">영문 이름</label><input id="sne" value="${esc(s.nameEn||'')}" placeholder="Hong Gil-dong"></div></div>
     <div class="field"><label for="ptag">한 줄 소개</label><input id="ptag" value="${esc(s.tagline||'')}" placeholder="작가와 작업을 한 문장으로"></div>
     <div class="field"><label for="pbio">작가 소개</label><textarea id="pbio" placeholder="작업 세계, 주로 다루는 재료와 주제 등">${esc(s.bio||'')}</textarea></div>
     <div class="field"><label for="sedu">학력 (한 줄에 하나)</label><textarea id="sedu" placeholder="○○대학교 미술대학 서양화과 졸업">${esc(s.edu||'')}</textarea></div>
-    <div class="field"><label for="scur">현재 활동 (한 줄에 하나)</label><textarea id="scur" placeholder="한국미술협회 회원&#10;○○판화가협회 회원&#10;○○평생학습관 강사">${esc(s.current||'')}</textarea></div>
+    <div class="field"><label for="scur">주요 경력 · 현재 활동 (한 줄에 하나)</label><textarea id="scur" placeholder="한국미술협회 회원&#10;○○판화가협회 회원&#10;○○평생학습관 강사">${esc(s.current||'')}</textarea></div>
     <div class="row2"><div class="field"><label for="pmail">이메일 (공개용)</label><input id="pmail" type="email" value="${esc(s.pemail||'')}" placeholder="표지에 넣을 이메일"></div>
     <div class="field"><label for="pinsta">인스타그램</label><input id="pinsta" value="${esc(s.insta||'')}" placeholder="@아이디"></div></div>
     <div class="field"><label for="pweb">웹사이트·블로그</label><input id="pweb" value="${esc(s.web||'')}" placeholder="https://"></div></div>
@@ -662,10 +837,13 @@ function viewSet(){const s=S.settings;
   <div class="section"><h2>백업</h2><p>지금까지의 기록을 사진까지 한 파일로 내려받아요.</p>
     <div class="actions"><button class="btn" id="bk">백업 파일 받기</button><button class="btn" id="csv">작품 목록 엑셀로 받기</button></div></div>`;
   const saveS=async()=>{try{await store.setSettings(s)}catch(e){toast(e.message)}};
-  $('#sname').onchange=async e=>{s.name=e.target.value.trim();await saveS();toast('저장했어요')};
-  $('#sedu').onchange=async e=>{s.edu=e.target.value.trim();await saveS();toast('저장했어요')};
-  $('#scur').onchange=async e=>{s.current=e.target.value.trim();await saveS();toast('저장했어요')};
-  [['#ptag','tagline'],['#pbio','bio'],['#pmail','pemail'],['#pinsta','insta'],['#pweb','web']].forEach(([id,k])=>{$(id).onchange=async e=>{s[k]=e.target.value.trim();await saveS();toast('저장했어요')}});
+  let pt=null;const ps=$('#psaved');
+  const flushP=async()=>{if(!pt)return;clearTimeout(pt);pt=null;ps.textContent='저장 중…';await saveS();ps.textContent='✓ 저장됨'};
+  [['#sname','name'],['#snh','nameHan'],['#sne','nameEn'],['#ptag','tagline'],['#pbio','bio'],['#sedu','edu'],['#scur','current'],['#pmail','pemail'],['#pinsta','insta'],['#pweb','web']].forEach(([id,k])=>{
+    $(id).addEventListener('input',e=>{s[k]=e.target.value.trim();ps.textContent='입력 중…';clearTimeout(pt);pt=setTimeout(flushP,700)});
+    $(id).addEventListener('blur',flushP)});
+  $('#cp5').onclick=async()=>{toast(await copyText(profileText(true))?'5줄 요약을 복사했어요':'복사하지 못했어요')};
+  $('#cpfull').onclick=async()=>{toast(await copyText(profileText(false))?'풀버전을 복사했어요':'복사하지 못했어요')};
   $('#sphoto').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{s.photo=await shrink(f,600);await saveS();toast('프로필 사진을 넣었어요');render()}catch(_){toast('이미지를 읽지 못했어요')}};
   $('#sphotorm')?.addEventListener('click',async()=>{delete s.photo;await saveS();render()});
   document.querySelectorAll('[data-rg]').forEach(b=>b.onclick=async()=>{s.genres.splice(+b.dataset.rg,1);await saveS();render()});
